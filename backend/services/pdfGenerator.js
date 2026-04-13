@@ -4,6 +4,45 @@ const fs = require('fs').promises;
 
 const SRS_PDF_BUILDER = '/root/.openclaw/workspace-srs-docs/skills/pdf-export/srs_pdf_builder.py';
 
+// Pre-process markdown: escape HTML tag names that appear WITHOUT backticks.
+// This prevents raw HTML tags like <head> from corrupting the PDF HTML structure.
+function preprocessMarkdown(md) {
+  // Split by lines to process each line
+  const lines = md.split('\n');
+  const result = [];
+  for (const line of lines) {
+    let processed = '';
+    let i = 0;
+    while (i < line.length) {
+      // Skip content inside backtick code spans
+      if (line[i] === '`') {
+        let j = i + 1;
+        while (j < line.length && line[j] !== '`') j++;
+        processed += line.substring(i, j + 1);
+        i = j + 1;
+        continue;
+      }
+      // If we see < followed by a letter, check if it's an HTML tag-like pattern
+      if (line[i] === '<' && /[a-zA-Z]/.test(line[i + 1] || '')) {
+        // Find the end of the tag
+        let j = i + 1;
+        while (j < line.length && line[j] !== '>') j++;
+        if (j < line.length) {
+          // Escape the tag
+          const tag = line.substring(i, j + 1);
+          processed += '&lt;' + line.substring(i + 1, j) + '&gt;';
+          i = j + 1;
+          continue;
+        }
+      }
+      processed += line[i];
+      i++;
+    }
+    result.push(processed);
+  }
+  return result.join('\n');
+}
+
 function extractProjectNameFromMarkdown(markdown) {
   // Try to extract from "## ProjectName" on line 2, or "# SRS — ProjectName"
   const lines = markdown.split('\n').slice(0, 10);
@@ -68,7 +107,7 @@ async function generatePdfFromMarkdown(markdownContent, outputPath, projectName 
 </style>
 </head>
 <body>
-${marked(markdownContent)}
+${marked(preprocessMarkdown(markdownContent))}
 </body>
 </html>`;
 
@@ -96,7 +135,7 @@ ${marked(markdownContent)}
     const { promisify } = require('util');
     const execFileAsync = promisify(execFile);
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;margin:40px;color:#333;line-height:1.6;}h1{color:#1a237e;}h2{color:#283593;}h3{color:#3949ab;}</style></head><body>${marked(markdownContent)}</body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;margin:40px;color:#333;line-height:1.6;}h1{color:#1a237e;}h2{color:#283593;}h3{color:#3949ab;}</style></head><body>${marked(preprocessMarkdown(markdownContent))}</body></html>`;
 
     const tmpHtml = outputPath.replace('.pdf', '.tmp.html');
     await fs.writeFile(tmpHtml, html, 'utf8');

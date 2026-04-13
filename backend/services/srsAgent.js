@@ -135,6 +135,7 @@ WRITING RULES:
 ✅ Always quantify: response times, thresholds, sizes, counts — never vague language
 ✅ Organize FRs by user role / dashboard (e.g., 3.1.1 Customer App, 3.1.2 Admin Dashboard)
 ❌ Never write "the system should be fast" — always specify exact metrics
+❌ HTML tag names mentioned in descriptions (e.g. <head>, <title>, <meta>, <body>, <div>) MUST be wrapped in backticks like `<head>` so they are treated as literal text, NOT as HTML elements. Failure to do this will corrupt the document.
 
 🚫 CRITICAL SCOPE RULE — Out of Scope items are FORBIDDEN
 ❌ ANYTHING listed under "Out of Scope" in section 1.2 MUST NOT appear anywhere in the document as:
@@ -263,6 +264,7 @@ SRS FORMAT RULES (when generating)
 ✅ Always quantify metrics
 ✅ Maintain structure: Introduction → Overall Description → Specific Requirements → Use Cases → Appendices
 ✅ Use Case tables — steps on own lines with <br/> between them
+❌ HTML tag names in descriptions (e.g. <head>, <title>, <meta>, <body>) MUST be wrapped in backticks like `<head>` — raw HTML tags corrupt the PDF output
 
 🚫 CRITICAL SCOPE RULE — Out of Scope items are FORBIDDEN
 ════════════════════════════════════════
