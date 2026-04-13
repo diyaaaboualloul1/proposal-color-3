@@ -1,0 +1,273 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #030712;
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e2533;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2d3748;
+  }
+}
+
+/* Floating orbs for login page */
+@keyframes float1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 10px) scale(0.95); }
+}
+
+@keyframes float2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-40px, 30px) scale(1.08); }
+  66% { transform: translate(20px, -15px) scale(0.92); }
+}
+
+@keyframes float3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(15px, -25px) scale(1.03); }
+}
+
+.orb-1 {
+  animation: float1 12s ease-in-out infinite;
+}
+
+.orb-2 {
+  animation: float2 16s ease-in-out infinite;
+}
+
+.orb-3 {
+  animation: float3 10s ease-in-out infinite;
+}
+
+/* Grid pattern overlay */
+.grid-pattern {
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Gradient border card technique */
+.gradient-border {
+  position: relative;
+  background: #161b27;
+  border-radius: 12px;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Pulse animation for generating badge */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(234, 179, 8, 0); }
+}
+
+.pulse-badge {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Typing dots animation */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+.typing-dot:nth-child(1) { animation: typing-dot 1.2s ease-in-out infinite 0s; }
+.typing-dot:nth-child(2) { animation: typing-dot 1.2s ease-in-out infinite 0.2s; }
+.typing-dot:nth-child(3) { animation: typing-dot 1.2s ease-in-out infinite 0.4s; }
+
+/* Shimmer skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #161b27 25%, #1e2533 50%, #161b27 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* SRS Markdown Prose */
+.srs-prose {
+  color: #e2e8f0;
+  line-height: 1.75;
+  font-size: 0.9375rem;
+}
+
+.srs-prose h1 {
+  color: #f8fafc;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #1e2533;
+  background: linear-gradient(135deg, #f1f5f9, #93c5fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.srs-prose h2 {
+  color: #93c5fd;
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.75rem;
+}
+
+.srs-prose h3 {
+  color: #e2e8f0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.6rem;
+}
+
+.srs-prose p {
+  margin: 0.875rem 0;
+  color: #cbd5e1;
+}
+
+.srs-prose ul, .srs-prose ol {
+  padding-left: 1.75rem;
+  margin: 0.875rem 0;
+  list-style-position: outside;
+}
+.srs-prose ul {
+  list-style-type: disc;
+}
+.srs-prose ol {
+  list-style-type: decimal;
+}
+.srs-prose ul ul {
+  list-style-type: circle;
+}
+.srs-prose ul ul ul {
+  list-style-type: square;
+}
+
+.srs-prose li {
+  margin: 0.375rem 0;
+  color: #cbd5e1;
+}
+
+.srs-prose code {
+  background: #0f1117;
+  border: 1px solid #1e2533;
+  border-radius: 5px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.85rem;
+  color: #93c5fd;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.srs-prose pre {
+  background: #0a0e1a;
+  border: 1px solid #1e2533;
+  border-radius: 10px;
+  padding: 1.25rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+.srs-prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.875rem;
+  color: #e2e8f0;
+}
+
+.srs-prose blockquote {
+  border-left: 3px solid #3b82f6;
+  padding-left: 1.25rem;
+  margin: 1rem 0;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.srs-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 0.875rem;
+}
+
+.srs-prose th {
+  background: #0f1117;
+  border: 1px solid #1e2533;
+  padding: 0.625rem 0.875rem;
+  text-align: left;
+  font-weight: 600;
+  color: #93c5fd;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.srs-prose td {
+  border: 1px solid #1e2533;
+  padding: 0.625rem 0.875rem;
+  color: #cbd5e1;
+}
+
+.srs-prose tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.srs-prose hr {
+  border: none;
+  border-top: 1px solid #1e2533;
+  margin: 2rem 0;
+}
+
+.srs-prose strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.srs-prose a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Active nav indicator */
+@keyframes slide-in {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
