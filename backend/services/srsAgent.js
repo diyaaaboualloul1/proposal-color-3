@@ -136,6 +136,16 @@ WRITING RULES:
 ✅ Organize FRs by user role / dashboard (e.g., 3.1.1 Customer App, 3.1.2 Admin Dashboard)
 ❌ Never write "the system should be fast" — always specify exact metrics
 
+🚫 CRITICAL SCOPE RULE — Out of Scope items are FORBIDDEN
+❌ ANYTHING listed under "Out of Scope" in section 1.2 MUST NOT appear anywhere in the document as:
+   - A Functional Requirement (FR-xxx)
+   - A Use Case (UC-xxx)
+   - A Use Case step or description
+   - Any FR description or bullet
+If section 1.2 lists X as Out of Scope, then X shall have ZERO requirement entries in the entire document.
+Before saving any generated FR or UC, verify it does not contradict or overlap with the Out of Scope list.
+This rule takes priority over all other rules.
+
 CLIENT QUESTIONNAIRE ANSWERS:
 ${JSON.stringify(questionnaireAnswers, null, 2)}`;
 }
@@ -253,6 +263,17 @@ SRS FORMAT RULES (when generating)
 ✅ Always quantify metrics
 ✅ Maintain structure: Introduction → Overall Description → Specific Requirements → Use Cases → Appendices
 ✅ Use Case tables — steps on own lines with <br/> between them
+
+🚫 CRITICAL SCOPE RULE — Out of Scope items are FORBIDDEN
+════════════════════════════════════════
+❌ ANYTHING listed under "Out of Scope" in section 1.2 MUST NOT appear anywhere in the document as:
+   - A Functional Requirement (FR-xxx)
+   - A Use Case (UC-xxx)
+   - A Use Case step or description
+   - Any FR description or bullet
+If section 1.2 lists X as Out of Scope, then X shall have ZERO requirement entries in the entire document.
+Before saving any generated FR or UC, verify it does not contradict or overlap with the Out of Scope list.
+This rule takes priority over all other rules.
 ════════════════════════════════════════
 ${contextBlock}
 CURRENT SRS:
