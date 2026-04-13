@@ -125,7 +125,13 @@ router.post('/import', async (req, res) => {
     );
     const project = projectResult.rows[0];
 
-    // 2. Sanitize answers to valid fields
+    // 2. Normalize field names (handle legacy field names)
+    if (answers.non_functional && !answers.non_functional_requirements) {
+      answers.non_functional_requirements = answers.non_functional;
+      delete answers.non_functional;
+    }
+
+    // 3. Sanitize answers to valid fields
     const sanitizedAnswers = {};
     VALID_FIELDS.forEach(field => {
       sanitizedAnswers[field] = answers[field] || '';
