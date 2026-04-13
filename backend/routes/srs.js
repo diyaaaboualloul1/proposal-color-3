@@ -325,7 +325,8 @@ router.get('/:version/export-json', authMiddleware, async (req, res) => {
       }
 
       // Extract Milestones (Functional Requirements FR-xxx)
-      const frMatch = line.match(/^###\s+(FR-\d+):\s+(.+)$/);
+      // Matches both ### FR-001 and #### FR-001 (3 or more hashes)
+      const frMatch = line.match(/^#{3,}\s+(FR-\d+):\s+(.+)$/);
       if (frMatch) {
         const id = frMatch[1];
         const title = frMatch[2].trim();
@@ -338,7 +339,7 @@ router.get('/:version/export-json', authMiddleware, async (req, res) => {
         for (let k = 1; k <= 6; k++) {
           if (i + k >= lines.length) break;
           const nextLine = lines[i + k].trim();
-          if (nextLine.startsWith('### FR-')) break;
+          if (/^#{3,}\s+FR-/.test(nextLine)) break;
 
           const descMatch = nextLine.match(/\*{0,2}[Dd]escription:?\*{0,2}\s*(.+)/);
           const inputsMatch = nextLine.match(/\*{0,2}[Ii]nputs?:?\*{0,2}\s*(.+)/);
