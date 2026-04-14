@@ -927,24 +927,22 @@ function buildDocxTable(tableLines) {
     const isEven = !isHeader && rowIdx % 2 === 0;
 
     const tableCells = row.cells.map(cellText => {
-      // Detect numbered list pattern: "1. Step text 2. Step text 3. Step text"
+      // Detect numbered steps pattern: "1. Step text 2. Step text 3. Step text"
       // Split into separate paragraphs so each step is on its own line
-      const numberedPattern = /^(\d+\.\s[^1]*?)((?:\d+\.\s[^1]*?)+)$/;
-      const matches = cellText.match(numberedPattern);
+      // Use lookahead for 1-3 digit numbers followed by ". " to avoid splitting on dots in text
+      const hasNumberedSteps = !isHeader && /^\d{1,3}\.\s/.test(cellText) && /\d{1,3}\.\s/.test(cellText.slice(4));
 
       let paragraphs;
-      if (matches && !isHeader) {
-        // First step + remaining steps
-        const first = matches[1].trim();
-        const rest = matches[2];
-        const allSteps = [first, ...rest.split(/(?=\d+\.\s)/).map(s => s.trim())];
-        paragraphs = allSteps.filter(s => s.length > 0).map(step => {
-          const numMatch = step.match(/^(\d+\.\s)(.*)/);
+      if (hasNumberedSteps) {
+        // Split on pattern: digit(s) + ". " that appears after the first step
+        const steps = cellText.split(/(?=\d{1,3}\.\s)/).map(s => s.trim()).filter(s => s.length > 0);
+        paragraphs = steps.map(step => {
+          const numMatch = step.match(/^(\d{1,3}\.\s)(.*)/s);
           if (numMatch) {
             return new Paragraph({
               children: [
                 new TextRun({ text: numMatch[1], bold: true, size: 18, color: DOCX_COLORS.orange }),
-                ...parseInlineRuns(numMatch[2], 18, '000000'),
+                ...parseInlineRuns(numMatch[2].trim(), 18, '000000'),
               ],
               spacing: { before: 40, after: 40 },
             });
