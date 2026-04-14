@@ -1104,30 +1104,14 @@ function markdownToDocx(markdown) {
     i++;
   }
 
-  // Build manual TOC — H1 and H2 only (no FRs/NFRs/UCs)
-  const tocEntries = [];
-  for (const line of lines) {
-    if (/^# [^#]/.test(line)) {
-      tocEntries.push({ level: 1, text: line.slice(2).trim() });
-    } else if (/^## [^#]/.test(line)) {
-      tocEntries.push({ level: 2, text: line.slice(3).trim() });
-    }
-    // Skip H3 and deeper — too granular for TOC
-  }
+  // Collect H1 and H2 headings for TOC (H3 and deeper are too granular)
 
-  // Word native TOC field — updates automatically with real page numbers when user opens in Word
+  // TOC — works in Word (auto-update on open) and Google Docs (auto-generates on open)
   const tocSection = [
     new Paragraph({
       children: [new TextRun({ text: 'Table of Contents', bold: true, size: 32, color: DOCX_COLORS.dark })],
       spacing: { before: 0, after: 80 },
       heading: HeadingLevel.HEADING_1,
-    }),
-    new Paragraph({
-      children: [new TextRun({
-        text: '📌 To activate page numbers: Press Ctrl + A (select all) → then F9 → select "Update entire table" → click OK',
-        size: 18, bold: true, color: DOCX_COLORS.orange,
-      })],
-      spacing: { before: 0, after: 160 },
     }),
     new TableOfContents('Table of Contents', {
       hyperlink: true,
