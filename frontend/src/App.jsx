@@ -11,6 +11,7 @@ import Activity from './pages/Activity'
 import Storage from './pages/Storage'
 import ShareView from './pages/ShareView'
 import Queue from './pages/Queue'
+import GoogleDriveSettings from './pages/Admin/GoogleDriveSettings'
 
 export default function App() {
   return (
@@ -47,6 +48,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <Storage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/google-drive"
+              element={
+                <ProtectedRoute adminOnly>
+                  <GoogleDriveSettings />
                 </ProtectedRoute>
               }
             />

@@ -31,7 +31,11 @@ export default function History({ projectId, project }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null) // version object to delete
   const [deleting, setDeleting] = useState(null)
 
+  // Drive upload state — map of version string → { uploading, shareUrl, error }
+  const [driveStatuses, setDriveStatuses] = useState({})
+
   const canDelete = isSuperAdmin() || (user && project && project.created_by === user.id)
+  const canUploadDrive = isSuperAdmin() || (user && project && project.created_by === user.id)
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type })
@@ -188,6 +192,31 @@ export default function History({ projectId, project }) {
     } finally {
       setDeleting(null)
       setDeleteConfirm(null)
+    }
+  }
+
+  const handleUploadToDrive = async (version) => {
+    setDriveStatuses(prev => ({ ...prev, [version]: { uploading: true, shareUrl: null, error: null } }))
+    try {
+      const res = await apiClient.post(`/projects/${projectId}/srs/${version}/upload-to-drive`)
+      const shareUrl = res.data.driveShareUrl || res.data.shareUrl
+      setVersions(prev => prev.map(v =>
+        v.version === version
+          ? { ...v, drive_share_url: shareUrl }
+          : v
+      ))
+      setDriveStatuses(prev => ({
+        ...prev,
+        [version]: { uploading: false, shareUrl, error: null }
+      }))
+      showToast('Uploaded to Google Drive!', 'success')
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Upload failed. Please try again.'
+      setDriveStatuses(prev => ({
+        ...prev,
+        [version]: { uploading: false, shareUrl: null, error: errMsg }
+      }))
+      showToast(errMsg, 'error')
     }
   }
 
@@ -688,6 +717,61 @@ export default function History({ projectId, project }) {
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="inline-flex items-center gap-2">
+                            {/* Upload to Drive — only for admin/project creator */}
+                            {canUploadDrive && (
+                              <>
+                                {(driveStatuses[v.version]?.shareUrl || v.drive_share_url) ? (
+                                  <a
+                                    href={driveStatuses[v.version]?.shareUrl || v.drive_share_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                                    style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }}
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    Open in Google Docs
+                                  </a>
+                                ) : driveStatuses[v.version]?.uploading ? (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg opacity-60"
+                                    style={{ color: '#94a3b8', border: '1px solid #1e2533' }}
+                                  >
+                                    <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" />
+                                    Uploading...
+                                  </span>
+                                ) : driveStatuses[v.version]?.error ? (
+                                  <motion.button
+                                    onClick={() => handleUploadToDrive(v.version)}
+                                    title="Retry upload"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                                    style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    Retry
+                                  </motion.button>
+                                ) : (
+                                  <motion.button
+                                    onClick={() => handleUploadToDrive(v.version)}
+                                    title="Upload to Google Drive"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                                    style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}
+                                    whileHover={{ backgroundColor: 'rgba(59,130,246,0.2)', scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    Upload to Drive
+                                  </motion.button>
+                                )}
+                              </>
+                            )}
                             {/* Delete */}
                             {canDelete && (
                               <motion.button

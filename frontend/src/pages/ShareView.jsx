@@ -290,6 +290,34 @@ export default function ShareView() {
             Download PDF
           </button>
         )}
+
+        {/* Open in Google Docs — only for uploaded versions */}
+        {(data?.versions?.find(v => v.version === selectedVersion)?.drive_share_url || data?.srs?.drive_share_url) && (
+          <a
+            href={data?.versions?.find(v => v.version === selectedVersion)?.drive_share_url || data?.srs?.drive_share_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              borderRadius: 10,
+              background: 'rgba(34,197,94,0.12)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              color: '#4ade80',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              transition: 'opacity 0.2s'
+            }}
+          >
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Open in Google Docs
+          </a>
+        )}
       </header>
 
       {/* Project header */}
