@@ -174,7 +174,7 @@ export default function ProjectDetail() {
               <Overview project={project} onUpdate={() => fetchProject(true)} />
             )}
             {activeTab === 'questionnaire' && (
-              <Questionnaire projectId={id} project={project} onSubmitSuccess={() => setActiveTab('srs')} onProjectUpdate={onProjectUpdate} />
+              <Questionnaire projectId={id} project={project} onSubmitSuccess={() => setActiveTab('srs')} onProjectUpdate={() => fetchProject(true)} />
             )}
             {activeTab === 'srs' && (
               <SrsViewer projectId={id} project={project} onProjectUpdate={() => fetchProject(true)} />
