@@ -1,4 +1,5 @@
 const { google } = require('googleapis');
+const { Readable } = require('stream');
 const path = require('path');
 
 const pool = new (require('pg').Pool)({
@@ -10,7 +11,7 @@ const pool = new (require('pg').Pool)({
 });
 
 /**
- * Get Google Drive client initialized from DB settings
+ * Get Google Drive client initialized from DB settings using OAuth2
  */
 async function getDriveClient() {
   const settings = await getSettings();
@@ -19,27 +20,27 @@ async function getDriveClient() {
     throw new Error('Google Drive integration is not enabled');
   }
 
-  if (!settings.google_service_account_key) {
-    throw new Error('Service account key is not configured');
+  if (!settings.google_oauth_refresh_token) {
+    throw new Error('Google account not connected. Please click "Connect with Google" first.');
   }
 
-  let keyJson;
-  try {
-    keyJson = typeof settings.google_service_account_key === 'string'
-      ? JSON.parse(settings.google_service_account_key)
-      : settings.google_service_account_key;
-  } catch {
-    throw new Error('Invalid service account JSON key');
+  if (!settings.google_oauth_client_id || !settings.google_oauth_client_secret) {
+    throw new Error('OAuth Client ID and Secret are not configured');
   }
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: keyJson,
-    scopes: ['https://www.googleapis.com/auth/drive'],
+  const oauth2Client = new google.auth.OAuth2(
+    settings.google_oauth_client_id,
+    settings.google_oauth_client_secret,
+    settings.google_oauth_redirect_uri
+  );
+
+  oauth2Client.setCredentials({
+    refresh_token: settings.google_oauth_refresh_token,
   });
 
-  const authClient = await auth.getClient();
-  const drive = google.drive({ version: 'v3', auth: authClient });
-  return drive;
+  const drive = google.drive({ version: 'v3', auth: oauth2Client });
+  const docs = google.docs({ version: 'v1', auth: oauth2Client });
+  return { drive, docs };
 }
 
 /**
@@ -78,7 +79,7 @@ async function saveSetting(key, value, userId) {
  * Find or create the project folder inside root
  */
 async function ensureProjectFolder(projectName) {
-  const drive = await getDriveClient();
+  const { drive } = await getDriveClient();
   const rootFolderId = await getSetting('google_drive_root_folder_id');
 
   if (!rootFolderId) {
@@ -117,7 +118,7 @@ async function ensureProjectFolder(projectName) {
  * Find or create the version subfolder inside project folder
  */
 async function ensureVersionFolder(projectFolderId, versionLabel) {
-  const drive = await getDriveClient();
+  const { drive } = await getDriveClient();
 
   // Search for existing version folder
   const searchRes = await drive.files.list({
@@ -151,10 +152,9 @@ async function ensureVersionFolder(projectFolderId, versionLabel) {
  * Upload a file to a Drive folder
  */
 async function uploadFile(folderId, fileName, fileBuffer, mimeType) {
-  const drive = await getDriveClient();
+  const { drive } = await getDriveClient();
 
   const { Readable } = require('stream');
-  const stream = new Readable();
   stream.push(fileBuffer);
   stream.push(null);
 
@@ -169,6 +169,8 @@ async function uploadFile(folderId, fileName, fileBuffer, mimeType) {
     },
     fields: 'id, webViewLink, webContentLink',
     supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    convert: mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   });
 
   return {
@@ -182,7 +184,7 @@ async function uploadFile(folderId, fileName, fileBuffer, mimeType) {
  * Set sharing permission so anyone with link can view/comment
  */
 async function setSharePermission(fileId) {
-  const drive = await getDriveClient();
+  const { drive } = await getDriveClient();
 
   await drive.permissions.create({
     fileId,
@@ -195,7 +197,55 @@ async function setSharePermission(fileId) {
 }
 
 /**
- * Main function: upload all 3 files for a version
+ * Create a native Google Doc directly in a Drive folder
+ * (bypasses storage quota because Google Docs don't count against quota)
+ */
+async function createGoogleDoc(folderId, fileName, textContent) {
+  const { drive, docs } = await getDriveClient();
+
+  // Create a blank Google Doc directly in the folder
+  const file = await drive.files.create({
+    resource: {
+      name: fileName,
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [folderId],
+    },
+    fields: 'id, webViewLink',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+
+  const docId = file.data.id;
+
+  // Insert text content into the Google Doc using Docs API
+  if (textContent && textContent.trim().length > 0) {
+    try {
+      await docs.documents.batchUpdate({
+        documentId: docId,
+        requestBody: {
+          requests: [{
+            insertText: {
+              location: { index: 0 },
+              text: textContent,
+            },
+          }],
+        },
+      });
+    } catch (e) {
+      console.error('Failed to populate Google Doc content:', e.message);
+      // File was created, just couldn't populate — that's okay
+    }
+  }
+
+  return {
+    fileId: docId,
+    webViewLink: file.data.webViewLink,
+  };
+}
+
+/**
+ * Main function: create a Google Doc from the SRS DOCX content
+ * Only creates the Google Doc — no PDF/MD uploads
  * @param {string} projectName
  * @param {string} versionLabel
  * @param {object} files - { pdf: Buffer, docx: Buffer, md: Buffer }
@@ -208,25 +258,26 @@ async function uploadVersionFiles(projectName, versionLabel, files) {
   // Ensure version folder
   const versionFolderId = await ensureVersionFolder(projectFolderId, versionLabel);
 
-  // Build filenames
+  // Build filename
   const safeProjectSlug = projectName.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, '-').substring(0, 40).replace(/-$/, '');
-  const pdfName = `${safeProjectSlug}-v${versionLabel}.pdf`;
-  const docxName = `${safeProjectSlug}-v${versionLabel}.docx`;
-  const mdName = `${safeProjectSlug}-v${versionLabel}.md`;
+  const docxName = `${safeProjectSlug}-v${versionLabel}`;
 
-  // Upload files in parallel
-  const [pdfResult, docxResult, mdResult] = await Promise.all([
-    uploadFile(versionFolderId, pdfName, files.pdf, 'application/pdf'),
-    uploadFile(versionFolderId, docxName, files.docx, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
-    uploadFile(versionFolderId, mdName, files.md, 'text/markdown'),
-  ]);
+  // Extract text from DOCX buffer using mammoth
+  let textContent = '';
+  try {
+    const mammoth = require('mammoth');
+    const result = await mammoth.extractRawText({ buffer: files.docx });
+    textContent = result.value || '';
+  } catch (e) {
+    console.error('Failed to extract text from DOCX:', e.message);
+    textContent = 'SRS Document — content could not be extracted.';
+  }
 
-  // Set share permissions on all files
-  await Promise.all([
-    setSharePermission(pdfResult.fileId),
-    setSharePermission(docxResult.fileId),
-    setSharePermission(mdResult.fileId),
-  ]);
+  // Create native Google Doc directly in the folder (no upload = no quota needed)
+  const docxResult = await createGoogleDoc(versionFolderId, docxName, textContent);
+
+  // Set share permission so anyone with link can comment
+  await setSharePermission(docxResult.fileId);
 
   return {
     driveFolderId: versionFolderId,
@@ -240,7 +291,13 @@ async function uploadVersionFiles(projectName, versionLabel, files) {
  * @returns {object} { success: true } or throws error
  */
 async function testConnection() {
-  const drive = await getDriveClient();
+  const settings = await getSettings();
+
+  if (!settings.google_oauth_refresh_token) {
+    throw new Error('Google account not connected. Please click "Connect with Google" first.');
+  }
+
+  const { drive } = await getDriveClient();
   const rootFolderId = await getSetting('google_drive_root_folder_id');
 
   // Try to access the root folder
@@ -273,4 +330,5 @@ module.exports = {
   setSharePermission,
   uploadVersionFiles,
   testConnection,
+  createGoogleDoc,
 };
