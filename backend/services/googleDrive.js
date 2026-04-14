@@ -197,50 +197,58 @@ async function setSharePermission(fileId) {
 }
 
 /**
- * Create a native Google Doc directly in a Drive folder
- * (bypasses storage quota because Google Docs don't count against quota)
+ * Upload DOCX buffer as a native Google Doc (converted server-side by Google)
+ * Uses Drive API's convert=true which converts DOCX → Google Doc on Google's servers
+ * @param {string} folderId
+ * @param {string} fileName
+ * @param {Buffer} docxBuffer
+ * @returns {Promise<{fileId: string, webViewLink: string}>}
  */
-async function createGoogleDoc(folderId, fileName, textContent) {
-  const { drive, docs } = await getDriveClient();
+async function uploadAsGoogleDoc(folderId, fileName, docxBuffer) {
+  const { drive } = await getDriveClient();
 
-  // Create a blank Google Doc directly in the folder
+  const { Readable } = require('stream');
+  const stream = new Readable();
+  stream.push(docxBuffer);
+  stream.push(null);
+
+  // Upload with convert=true → Google converts DOCX → Google Doc on their servers
+  // This uses OAuth credentials (real user's quota) — no service account quota issue
   const file = await drive.files.create({
     resource: {
       name: fileName,
       mimeType: 'application/vnd.google-apps.document',
       parents: [folderId],
     },
+    media: {
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      body: stream,
+    },
+    fields: 'id, webViewLink',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    convert: true,
+  });
+
+  return {
+    fileId: file.data.id,
+    webViewLink: file.data.webViewLink,
+  };
+}
+
+/**
+ * @deprecated Use uploadAsGoogleDoc instead — simpler and more reliable
+ */
+async function createGoogleDoc(folderId, fileName, textContent) {
+  // Legacy — kept for backwards compatibility
+  const { drive, docs } = await getDriveClient();
+  const file = await drive.files.create({
+    resource: { name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [folderId] },
     fields: 'id, webViewLink',
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
   });
-
-  const docId = file.data.id;
-
-  // Insert text content into the Google Doc using Docs API
-  if (textContent && textContent.trim().length > 0) {
-    try {
-      await docs.documents.batchUpdate({
-        documentId: docId,
-        requestBody: {
-          requests: [{
-            insertText: {
-              location: { index: 0 },
-              text: textContent,
-            },
-          }],
-        },
-      });
-    } catch (e) {
-      console.error('Failed to populate Google Doc content:', e.message);
-      // File was created, just couldn't populate — that's okay
-    }
-  }
-
-  return {
-    fileId: docId,
-    webViewLink: file.data.webViewLink,
-  };
+  return { fileId: file.data.id, webViewLink: file.data.webViewLink };
 }
 
 /**
@@ -262,19 +270,8 @@ async function uploadVersionFiles(projectName, versionLabel, files) {
   const safeProjectSlug = projectName.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, '-').substring(0, 40).replace(/-$/, '');
   const docxName = `${safeProjectSlug}-v${versionLabel}`;
 
-  // Extract text from DOCX buffer using mammoth
-  let textContent = '';
-  try {
-    const mammoth = require('mammoth');
-    const result = await mammoth.extractRawText({ buffer: files.docx });
-    textContent = result.value || '';
-  } catch (e) {
-    console.error('Failed to extract text from DOCX:', e.message);
-    textContent = 'SRS Document — content could not be extracted.';
-  }
-
-  // Create native Google Doc directly in the folder (no upload = no quota needed)
-  const docxResult = await createGoogleDoc(versionFolderId, docxName, textContent);
+  // Upload DOCX directly — Drive API converts it to Google Doc on Google's servers
+  const docxResult = await uploadAsGoogleDoc(versionFolderId, docxName, files.docx);
 
   // Set share permission so anyone with link can comment
   await setSharePermission(docxResult.fileId);

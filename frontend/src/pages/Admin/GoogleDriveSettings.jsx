@@ -353,7 +353,7 @@ export default function GoogleDriveSettings() {
               {!isConnected ? (
                 <button
                   onClick={handleConnect}
-                  disabled={connecting || !clientId || !clientSecret}
+                  disabled={connecting || !clientId}
                   className="px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#4285F4', color: '#fff' }}
                 >
