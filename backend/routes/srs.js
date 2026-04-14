@@ -987,7 +987,7 @@ function buildDocxTable(tableLines) {
 }
 
 function markdownToDocx(markdown, options = {}) {
-  const { skipTOC = false } = options;
+  const { skipTOC = false, showTOCInstructions = true } = options;
   const lines = markdown.split('\n');
   const children = [];
   let i = 0;
@@ -1108,12 +1108,21 @@ function markdownToDocx(markdown, options = {}) {
   // Collect H1 and H2 headings for TOC (H3 and deeper are too granular)
 
   // TOC — skip for Google Drive uploads (Google Docs renders field codes differently)
+  const tocNoteParagraph = showTOCInstructions ? new Paragraph({
+    children: [new TextRun({
+      text: '\u2605 To activate page numbers: Press Ctrl + A (select all) \u2192 then F9 \u2192 select "Update entire table" \u2192 click OK',
+      size: 18, bold: true, color: 'FF6600',
+    })],
+    spacing: { before: 0, after: 160 },
+  }) : null;
+
   const tocSection = skipTOC ? [] : [
     new Paragraph({
       children: [new TextRun({ text: 'Table of Contents', bold: true, size: 32, color: DOCX_COLORS.dark })],
       spacing: { before: 0, after: 80 },
       heading: HeadingLevel.HEADING_1,
     }),
+    ...(tocNoteParagraph ? [tocNoteParagraph] : []),
     new TableOfContents('Table of Contents', {
       hyperlink: true,
       headingStyleRange: '1-2',
@@ -1278,8 +1287,8 @@ router.post('/:version/upload-to-drive', authMiddleware, async (req, res) => {
     // Read markdown file
     const markdown = await fs.readFile(srsVersion.file_path, 'utf8');
 
-    // Generate DOCX buffer — skip TOC for Google Drive (field code doesn't render in Google Docs)
-    const docxDoc = markdownToDocx(markdown, { skipTOC: true });
+    // Generate DOCX buffer — skip TOC page and instructions for Google Drive (field codes don't render in Google Docs)
+    const docxDoc = markdownToDocx(markdown, { skipTOC: true, showTOCInstructions: false });
     const docxBuffer = await require('docx').Packer.toBuffer(docxDoc);
 
     // Read PDF (existing file path)
