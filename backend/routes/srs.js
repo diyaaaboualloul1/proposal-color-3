@@ -929,34 +929,52 @@ function buildDocxTable(tableLines) {
     const tableCells = row.cells.map(cellText => {
       // Detect numbered steps pattern: "1. Step text 2. Step text 3. Step text"
       // Split into separate paragraphs so each step is on its own line
-      // Allow leading whitespace since markdown table cells are trimmed
-      const hasNumberedSteps = !isHeader && /^\s*\d{1,3}\.\s/.test(cellText) && /\d{1,3}\.\s/.test(cellText.slice(4));
+      // Use <br/> as primary delimiter, then also split remaining multi-step text
+      const normalizedCell = cellText.replace(/<br\s*\/?>/gi, ' |SPLIT| ');
 
       let paragraphs;
-      if (hasNumberedSteps) {
-        // Split on pattern: digit(s) + ". " that appears after the first step
-        const steps = cellText.split(/(?=\d{1,3}\.\s)/).map(s => s.trim()).filter(s => s.length > 0);
-        paragraphs = steps.map(step => {
-          const numMatch = step.match(/^(\d{1,3}\.\s)(.*)/s);
-          if (numMatch) {
+      if (!isHeader) {
+        const rawParts = normalizedCell.split(' |SPLIT| ').map(p => p.trim()).filter(p => p.length > 0);
+        const steps = [];
+        for (const part of rawParts) {
+          // Check if this part has multiple numbered steps (e.g. "1. A 2. B 3. C")
+          const stepMatches = [...part.matchAll(/(\d{1,3})\.\s+(?=[A-Z])/g)];
+          if (stepMatches.length > 1) {
+            // Multiple steps in one part — split by lookahead
+            const subParts = part.split(/(?=\d{1,3}\.\s+[A-Z])/g).map(p => p.trim()).filter(p => p.length > 0);
+            steps.push(...subParts);
+          } else {
+            steps.push(part);
+          }
+        }
+
+        if (steps.length > 1) {
+          // Build a paragraph for each step
+          paragraphs = steps.map(step => {
+            const numMatch = step.match(/^(\d{1,3}\.\s+)(.*)/s);
+            if (numMatch) {
+              return new Paragraph({
+                children: [
+                  new TextRun({ text: numMatch[1], bold: true, size: 18, color: DOCX_COLORS.orange }),
+                  ...parseInlineRuns(numMatch[2].trim(), 18, '000000'),
+                ],
+                spacing: { before: 40, after: 40 },
+              });
+            }
             return new Paragraph({
-              children: [
-                new TextRun({ text: numMatch[1], bold: true, size: 18, color: DOCX_COLORS.orange }),
-                ...parseInlineRuns(numMatch[2].trim(), 18, '000000'),
-              ],
+              children: parseInlineRuns(step, 18, '000000'),
               spacing: { before: 40, after: 40 },
             });
-          }
-          return new Paragraph({
-            children: parseInlineRuns(step, 18, '000000'),
-            spacing: { before: 40, after: 40 },
           });
-        });
+        } else {
+          paragraphs = [new Paragraph({
+            children: parseInlineRuns(cellText, 18, '000000'),
+            spacing: { before: 60, after: 60 },
+          })];
+        }
       } else {
         paragraphs = [new Paragraph({
-          children: isHeader
-            ? [new TextRun({ text: cellText.replace(/\*\*/g, ''), bold: true, size: 18, color: DOCX_COLORS.white })]
-            : parseInlineRuns(cellText, 18, '000000'),
+          children: [new TextRun({ text: cellText.replace(/\*\*/g, ''), bold: true, size: 18, color: DOCX_COLORS.white })],
           spacing: { before: 60, after: 60 },
         })];
       }
