@@ -986,7 +986,8 @@ function buildDocxTable(tableLines) {
   });
 }
 
-function markdownToDocx(markdown) {
+function markdownToDocx(markdown, options = {}) {
+  const { skipTOC = false } = options;
   const lines = markdown.split('\n');
   const children = [];
   let i = 0;
@@ -1106,8 +1107,8 @@ function markdownToDocx(markdown) {
 
   // Collect H1 and H2 headings for TOC (H3 and deeper are too granular)
 
-  // TOC — works in Word (auto-update on open) and Google Docs (auto-generates on open)
-  const tocSection = [
+  // TOC — skip for Google Drive uploads (Google Docs renders field codes differently)
+  const tocSection = skipTOC ? [] : [
     new Paragraph({
       children: [new TextRun({ text: 'Table of Contents', bold: true, size: 32, color: DOCX_COLORS.dark })],
       spacing: { before: 0, after: 80 },
@@ -1277,8 +1278,8 @@ router.post('/:version/upload-to-drive', authMiddleware, async (req, res) => {
     // Read markdown file
     const markdown = await fs.readFile(srsVersion.file_path, 'utf8');
 
-    // Generate DOCX buffer using existing markdownToDocx
-    const docxDoc = markdownToDocx(markdown);
+    // Generate DOCX buffer — skip TOC for Google Drive (field code doesn't render in Google Docs)
+    const docxDoc = markdownToDocx(markdown, { skipTOC: true });
     const docxBuffer = await require('docx').Packer.toBuffer(docxDoc);
 
     // Read PDF (existing file path)
