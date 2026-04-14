@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const { getSettings, saveSetting, testConnection } = require('../services/googleDrive');
-const { pool } = require('../db');
+const { getSettings, saveSetting, testConnection, pool } = require('../services/googleDrive');
 
 const SETUP_INSTRUCTIONS = [
   {

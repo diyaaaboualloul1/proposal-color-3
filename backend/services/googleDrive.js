@@ -320,6 +320,7 @@ function escapeSearch(str) {
 }
 
 module.exports = {
+  pool,
   getDriveClient,
   getSettings,
   getSetting,
