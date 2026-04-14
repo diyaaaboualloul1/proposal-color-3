@@ -67,6 +67,7 @@ const storageRouter = require('./routes/storage');
 const convertRouter = require('./routes/convert');
 const shareRoutes = require('./routes/share');
 const commentRoutes = require('./routes/comments');
+const settingsRouter = require('./routes/settings');
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
@@ -79,6 +80,7 @@ app.use('/api/storage', storageRouter);
 app.use('/api/convert', convertRouter);
 app.use('/api/share', shareRoutes);
 app.use('/api/projects/:projectId/comments', commentRoutes);
+app.use('/api/admin/settings', settingsRouter);
 
 // 404 handler
 app.use('*', (req, res) => {

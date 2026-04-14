@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS srs_versions (
   version VARCHAR(20) NOT NULL,
   file_path VARCHAR(500) NOT NULL,
   pdf_path VARCHAR(500),
+  drive_folder_id VARCHAR(255) DEFAULT NULL,
+  drive_file_id_docx VARCHAR(255) DEFAULT NULL,
+  drive_share_url TEXT DEFAULT NULL,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -86,3 +89,20 @@ CREATE TABLE IF NOT EXISTS cleanup_schedule (
 INSERT INTO cleanup_schedule (frequency, keep_versions, log_days, enabled)
 VALUES ('weekly', 5, 30, false)
 ON CONFLICT DO NOTHING;
+
+-- Platform settings table
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id SERIAL PRIMARY KEY,
+  setting_key VARCHAR(255) UNIQUE NOT NULL,
+  setting_value TEXT,
+  updated_at TIMESTAMP DEFAULT NOW(),
+  updated_by INTEGER REFERENCES users(id)
+);
+
+-- Insert default Google Drive settings
+INSERT INTO platform_settings (setting_key, setting_value) VALUES
+  ('google_drive_enabled', 'false'),
+  ('google_drive_root_folder_id', NULL),
+  ('google_service_account_email', NULL),
+  ('google_service_account_key', NULL)
+ON CONFLICT (setting_key) DO NOTHING;

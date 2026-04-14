@@ -17,6 +17,7 @@ function makeDownloadName(projectName, version, ext) {
   return `${slug}-v${version}.${ext}`;
 }
 const { callSrsAgentWithRetry, callSrsAgentStream, buildGenerationPrompt, postProcessSrs } = require('../services/srsAgent');
+const { uploadVersionFiles } = require('../services/googleDrive');
 const { enqueue, getQueueStatus } = require('../services/generationQueue');
 const { generatePdfFromMarkdown } = require('../services/pdfGenerator');
 const { ensureProjectDir, validateProjectPath } = require('../services/storageService');
@@ -1257,6 +1258,114 @@ router.get('/:version/download-docx', authMiddleware, async (req, res) => {
     }
     console.error('Download DOCX error:', err);
     res.status(500).json({ error: 'Failed to generate DOCX' });
+  }
+});
+
+// POST /projects/:projectId/srs/:version/upload-to-drive — upload all 3 files to Drive
+router.post('/:version/upload-to-drive', authMiddleware, async (req, res) => {
+  const project = await checkProjectAccess(req, res);
+  if (!project) return;
+
+  const { version } = req.params;
+
+  try {
+    // Get the SRS version record
+    const versionResult = await pool.query(
+      'SELECT * FROM srs_versions WHERE project_id = $1 AND version = $2',
+      [project.id, version]
+    );
+
+    if (versionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'SRS version not found' });
+    }
+
+    const srsVersion = versionResult.rows[0];
+
+    // If already uploaded, return existing URL
+    if (srsVersion.drive_share_url && srsVersion.drive_share_url !== '' && srsVersion.drive_share_url !== 'null') {
+      return res.json({
+        success: true,
+        alreadyUploaded: true,
+        driveShareUrl: srsVersion.drive_share_url,
+      });
+    }
+
+    // Read markdown file
+    const markdown = await fs.readFile(srsVersion.file_path, 'utf8');
+
+    // Generate DOCX buffer using existing markdownToDocx
+    const docxDoc = markdownToDocx(markdown);
+    const docxBuffer = await require('docx').Packer.toBuffer(docxDoc);
+
+    // Read PDF (existing file path)
+    let pdfBuffer = null;
+    if (srsVersion.pdf_path) {
+      try {
+        pdfBuffer = await fs.readFile(srsVersion.pdf_path);
+      } catch (pdfErr) {
+        console.warn('PDF file not found for Drive upload:', srsVersion.pdf_path);
+      }
+    }
+
+    // Read markdown file as buffer
+    const mdBuffer = await fs.readFile(srsVersion.file_path);
+
+    // Upload to Google Drive
+    const result = await uploadVersionFiles(project.name, version, {
+      pdf: pdfBuffer,
+      docx: docxBuffer,
+      md: mdBuffer,
+    });
+
+    // Update version record with Drive info
+    await pool.query(
+      `UPDATE srs_versions
+       SET drive_folder_id = $1, drive_file_id_docx = $2, drive_share_url = $3
+       WHERE id = $4`,
+      [result.driveFolderId, result.driveFileIdDocx, result.shareUrl, srsVersion.id]
+    );
+
+    res.json({
+      success: true,
+      driveFolderId: result.driveFolderId,
+      driveFileId: result.driveFileIdDocx,
+      driveShareUrl: result.shareUrl,
+      message: 'Uploaded to Google Drive',
+    });
+  } catch (err) {
+    console.error('Upload to Drive error:', err);
+    res.status(500).json({ error: err.message || 'Failed to upload to Google Drive' });
+  }
+});
+
+// GET /projects/:projectId/srs/:version/drive-status — check if uploaded
+router.get('/:version/drive-status', authMiddleware, async (req, res) => {
+  const project = await checkProjectAccess(req, res);
+  if (!project) return;
+
+  const { version } = req.params;
+
+  try {
+    const versionResult = await pool.query(
+      'SELECT drive_share_url FROM srs_versions WHERE project_id = $1 AND version = $2',
+      [project.id, version]
+    );
+
+    if (versionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'SRS version not found' });
+    }
+
+    const srsVersion = versionResult.rows[0];
+    const shareUrl = srsVersion.drive_share_url;
+
+    if (shareUrl && shareUrl !== '' && shareUrl !== 'null') {
+      res.json({ uploaded: true, driveShareUrl: shareUrl });
+    } else {
+      res.json({ uploaded: false });
+    }
+  } catch (err) {
+    console.error('Drive status error:', err);
+    res.status(500).json({ error: 'Failed to check drive status' });
   }
 });
 

@@ -58,7 +58,7 @@ router.get('/:token', async (req, res) => {
     }
 
     const versionsResult = await pool.query(
-      'SELECT version, created_at FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC',
+      'SELECT version, created_at, drive_share_url FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC',
       [projectId]
     );
 
@@ -66,7 +66,7 @@ router.get('/:token', async (req, res) => {
     if (versionsResult.rows.length > 0) {
       const latestVersion = versionsResult.rows[0].version;
       const srsResult = await pool.query(
-        'SELECT version, file_path, created_at FROM srs_versions WHERE project_id = $1 AND version = $2',
+        'SELECT version, file_path, created_at, drive_share_url FROM srs_versions WHERE project_id = $1 AND version = $2',
         [projectId, latestVersion]
       );
 
@@ -82,6 +82,7 @@ router.get('/:token', async (req, res) => {
           version: srsRow.version,
           content,
           created_at: srsRow.created_at,
+          drive_share_url: srsRow.drive_share_url || null,
         };
       }
     }
