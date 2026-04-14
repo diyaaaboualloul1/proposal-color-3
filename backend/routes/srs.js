@@ -927,15 +927,44 @@ function buildDocxTable(tableLines) {
     const isEven = !isHeader && rowIdx % 2 === 0;
 
     const tableCells = row.cells.map(cellText => {
-      const runs = isHeader
-        ? [new TextRun({ text: cellText.replace(/\*\*/g, ''), bold: true, size: 18, color: DOCX_COLORS.white })]
-        : parseInlineRuns(cellText, 18, '000000');
+      // Detect numbered list pattern: "1. Step text 2. Step text 3. Step text"
+      // Split into separate paragraphs so each step is on its own line
+      const numberedPattern = /^(\d+\.\s[^1]*?)((?:\d+\.\s[^1]*?)+)$/;
+      const matches = cellText.match(numberedPattern);
+
+      let paragraphs;
+      if (matches && !isHeader) {
+        // First step + remaining steps
+        const first = matches[1].trim();
+        const rest = matches[2];
+        const allSteps = [first, ...rest.split(/(?=\d+\.\s)/).map(s => s.trim())];
+        paragraphs = allSteps.filter(s => s.length > 0).map(step => {
+          const numMatch = step.match(/^(\d+\.\s)(.*)/);
+          if (numMatch) {
+            return new Paragraph({
+              children: [
+                new TextRun({ text: numMatch[1], bold: true, size: 18, color: DOCX_COLORS.orange }),
+                ...parseInlineRuns(numMatch[2], 18, '000000'),
+              ],
+              spacing: { before: 40, after: 40 },
+            });
+          }
+          return new Paragraph({
+            children: parseInlineRuns(step, 18, '000000'),
+            spacing: { before: 40, after: 40 },
+          });
+        });
+      } else {
+        paragraphs = [new Paragraph({
+          children: isHeader
+            ? [new TextRun({ text: cellText.replace(/\*\*/g, ''), bold: true, size: 18, color: DOCX_COLORS.white })]
+            : parseInlineRuns(cellText, 18, '000000'),
+          spacing: { before: 60, after: 60 },
+        })];
+      }
 
       return new TableCell({
-        children: [new Paragraph({
-          children: runs,
-          spacing: { before: 60, after: 60 },
-        })],
+        children: paragraphs,
         shading: isHeader
           ? { fill: DOCX_COLORS.dark,  type: ShadingType.SOLID, color: DOCX_COLORS.dark }
           : isEven
