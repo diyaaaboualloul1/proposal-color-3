@@ -929,8 +929,8 @@ function buildDocxTable(tableLines) {
     const tableCells = row.cells.map(cellText => {
       // Detect numbered steps pattern: "1. Step text 2. Step text 3. Step text"
       // Split into separate paragraphs so each step is on its own line
-      // Use lookahead for 1-3 digit numbers followed by ". " to avoid splitting on dots in text
-      const hasNumberedSteps = !isHeader && /^\d{1,3}\.\s/.test(cellText) && /\d{1,3}\.\s/.test(cellText.slice(4));
+      // Allow leading whitespace since markdown table cells are trimmed
+      const hasNumberedSteps = !isHeader && /^\s*\d{1,3}\.\s/.test(cellText) && /\d{1,3}\.\s/.test(cellText.slice(4));
 
       let paragraphs;
       if (hasNumberedSteps) {
