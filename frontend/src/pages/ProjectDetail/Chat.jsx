@@ -174,8 +174,8 @@ export default function Chat({ projectId, project, onVersionCreated }) {
 
     let streamedContent = ''
     const token = localStorage.getItem('srs_token')
-    const baseURL = import.meta.env.VITE_API_URL || ''
-    // Remove /api from path since VITE_API_URL already includes it
+    // Match apiClient's baseURL fallback so /api proxies correctly in dev
+    const baseURL = import.meta.env.VITE_API_URL || '/api'
     const url = `${baseURL}/projects/${projectId}/chat/stream?message=${encodeURIComponent(text)}&token=${token}`
 
     isStreamingRef.current = true
@@ -260,7 +260,7 @@ export default function Chat({ projectId, project, onVersionCreated }) {
       eventSource.close()
       isStreamingRef.current = false
       setSending(false)
-      setMessages(prev => prev.filter(m => m.id !== tempAiId))
+      setAllMessages(prev => prev.filter(m => m.id !== tempAiId))
       setIsBackgroundProcessing(true)
       const anchorTime = tempUserMsg.created_at
       // Poll every 5s, only stop when assistant msg NEWER than our user msg appears

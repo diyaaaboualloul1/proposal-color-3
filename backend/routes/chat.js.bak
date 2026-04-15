@@ -170,18 +170,6 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // GET /projects/:projectId/chat/stream?message=... (SSE streaming chat)
 router.get('/stream', authMiddleware, async (req, res) => {
-  // Validate project access BEFORE flushing headers — checkProjectAccess
-  // Validate project access BEFORE flushing SSE headers
-  const project = await checkProjectAccess(req, res);
-  if (!project) return;
-
-  const message = req.query.message;
-  if (!message || !message.trim()) {
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(400).json({ error: 'Message query param required' });
-  }
-
-  // Now flush SSE headers — after this point, use send() for all responses
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -193,6 +181,15 @@ router.get('/stream', authMiddleware, async (req, res) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     }
   };
+
+  const message = req.query.message;
+  if (!message || !message.trim()) {
+    send({ type: 'error', message: 'Message query param required' });
+    return res.end();
+  }
+
+  const project = await checkProjectAccess(req, res);
+  if (!project) return;
 
   try {
     // Get current SRS version
