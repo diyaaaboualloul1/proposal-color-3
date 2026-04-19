@@ -3,6 +3,7 @@ const router = express.Router({ mergeParams: true });
 const { Pool } = require('pg');
 const fs = require('fs').promises;
 const path = require('path');
+const { Worker } = require('worker_threads');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: create download-safe filename from project name + version
@@ -539,40 +540,55 @@ router.get('/stream-generate', authMiddleware, async (req, res) => {
       fullMarkdown += chunk;
       send({ type: 'chunk', content: chunk });
     });
-    // Post-process to enforce format rules
-    fullMarkdown = postProcessSrs(fullMarkdown);
-    const projectPath = await ensureProjectDir(projectId);
+    // Spawn worker to handle CPU-heavy post-processing, PDF generation, and DB insert
+    // This keeps the main event loop free so API requests (e.g. poll for versions) don't time out
     const version = await getNextVersion(projectId);
+    const projectPath = await ensureProjectDir(projectId);
 
-    const mdFilename = `srs-v${version}.md`;
-    const mdPath = path.join(projectPath, mdFilename);
-    await fs.writeFile(mdPath, fullMarkdown, 'utf8');
+    const dbConfig = {
+      host: process.env.DB_HOST || '127.0.0.1',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'srs_platform_db',
+      user: process.env.DB_USER || 'srs_user',
+      password: process.env.DB_PASSWORD || 'SrsPlatform2026!',
+    };
 
-    // Generate PDF
-    let pdfPath = null;
-    try {
-      const pdfFilename = `srs-v${version}.pdf`;
-      pdfPath = path.join(projectPath, pdfFilename);
-      await generatePdfFromMarkdown(fullMarkdown, pdfPath, null, version, new Date().toISOString().split('T')[0], 'Draft');
-    } catch (pdfErr) {
-      console.error('PDF generation failed during stream-generate:', pdfErr.message);
-      pdfPath = null;
-    }
+    await new Promise((resolve, reject) => {
+      const worker = new Worker(path.join(__dirname, '../services/pdfWorker.js'), {
+        workerData: {
+          markdown: fullMarkdown,
+          projectId,
+          projectName: project.name,
+          projectPath,
+          version,
+          userId: req.user.id,
+          dbConfig,
+        },
+      });
 
-    // Insert srs_versions
-    await pool.query(
-      `INSERT INTO srs_versions (project_id, version, file_path, pdf_path, created_by)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [projectId, version, mdPath, pdfPath, req.user.id]
-    );
+      worker.on('message', (result) => {
+        if (result.success) {
+          send({ type: 'done', version });
+        } else {
+          console.error('Worker error:', result.error);
+          send({ type: 'error', message: result.error });
+        }
+        resolve();
+      });
 
-    // Update generation_status = 'ready'
-    await pool.query(
-      'UPDATE projects SET generation_status = $1, updated_at = NOW() WHERE id = $2',
-      ['ready', projectId]
-    );
+      worker.on('error', (err) => {
+        console.error('Worker thread error:', err.message);
+        send({ type: 'error', message: err.message });
+        resolve();
+      });
 
-    send({ type: 'done', version });
+      worker.on('exit', (code) => {
+        if (code !== 0) {
+          console.error('Worker exited with code:', code);
+        }
+      });
+    });
+
     res.end();
   } catch (err) {
     console.error('Stream-generate error:', err.message);

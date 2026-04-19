@@ -4,18 +4,15 @@ module.exports = {
       name: 'srs-platform-backend',
       script: 'server.js',
       cwd: '/srs-platform/backend',
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '512M',
-      env: {
+      env_production: {
         NODE_ENV: 'production',
         PORT: 6001
       },
-      error_file: '/srs-platform/backend/logs/error.log',
-      out_file: '/srs-platform/backend/logs/out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss',
-      merge_logs: true
+      max_memory_restart: '512M',
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: '10s',
+      restart_delay: 1000
     }
   ]
-};
+}

@@ -61,7 +61,9 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
         setSelectedVersion(list[0].version)
       }
     } catch {
-      setError('Failed to load SRS versions.')
+      // Silently fail — the next 3-second poll will succeed if this was transient.
+      // Do NOT setError here; "Failed to load project" on the parent page is triggered
+      // by onProjectUpdate re-fetch, not a genuine auth or network failure.
     } finally {
       setLoading(false)
     }

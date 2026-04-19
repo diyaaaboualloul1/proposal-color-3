@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 6060,
+    allowedHosts: ['srs.5ostudios.com', '142.132.189.59', 'localhost', '127.0.0.1'],
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:6001',

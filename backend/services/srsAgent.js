@@ -29,9 +29,8 @@ async function callSrsAgent(prompt, maxTokens = 8000) {
 
   return content;
 }
-
 function buildGenerationPrompt(questionnaireAnswers, projectName) {
-  const today = new Date().toISOString().split('T')[0]; // e.g. 2026-03-28
+  const today = new Date().toISOString().split('T')[0];
   return `IMPORTANT: Return ONLY the raw Markdown SRS document. Do NOT write summaries, descriptions, file paths, or any explanation. Start directly with the document title (# SRS — ...) and end with the last section. No other text.
 Today's date: ${today}. Use this as the document date.
 
@@ -54,8 +53,8 @@ APPROVED DOCUMENT STRUCTURE (MANDATORY)
 # 1. Introduction
 ## 1.1 Purpose
 ## 1.2 Scope
-  - **In Scope:** (bullet list — what the system WILL do)
-  - **Out of Scope:** (mandatory bullet list — what the system will NOT do; if everything is in scope, write "None proposed at this time")
+  - **In Scope:** (concise bullet list — what the system WILL do)
+  - **Out of Scope:** (mandatory bullet list — what the system will NOT do; if truly nothing is excluded, write "No exclusions at this time")
 ## 1.3 Definitions, Acronyms & Abbreviations
 | Term | Definition |
 |------|-----------|
@@ -75,14 +74,29 @@ APPROVED DOCUMENT STRUCTURE (MANDATORY)
 
 # 3. Specific Requirements
 ## 3.1 Functional Requirements
-  (Organize by role/dashboard using ### 3.1.1, ### 3.1.2 sub-sections)
-  
-  ### FR-001: [Name]
+
+### 3.1.1 [Role / Surface Name] — [Feature Group]
+  Example: ### 3.1.1 Customer App — Browsing and Discovery
+
+  Combine related actions into single FRs. Do NOT list every button, field, or screen as its own FR.
+  Example consolidation:
+  - ❌ WRONG: FR-001 Set Default Address, FR-002 Edit Phone, FR-003 Change Password, FR-004 Edit Name → 4 FRs
+  - ✅ RIGHT: FR-001: Customer Account Management → 1 FR covering all profile actions
+
+  Target: 60–80 FRs maximum for any project. Fewer is better if requirements are well-combined.
+  Each subsection should contain ≤ 20 FRs. Use 3–6 subsections for full-stack projects.
+
+### FR-001: [Consolidated Feature Name]
   - **Description:** The system SHALL...
   - **Inputs:** ...
   - **Outputs:** ...
   - **Priority:** High / Medium / Low
   - **Traceability:** UC-00x
+
+### 3.1.2 [Role / Surface Name] — [Feature Group]
+
+### FR-0XX: [Consolidated Feature Name]
+  [... continue FRs, numbering continues sequentially across subsections ...]
 
 ## 3.2 Non-Functional Requirements
   ### NFR-001: [Name]
@@ -95,6 +109,7 @@ APPROVED DOCUMENT STRUCTURE (MANDATORY)
   ### 3.3.2 Software Interfaces
   | Interface | Purpose | Protocol |
   |-----------|---------|----------|
+  ### 3.3.3 Communication Interfaces
 
 ## 3.4 System Constraints
 
@@ -102,13 +117,27 @@ APPROVED DOCUMENT STRUCTURE (MANDATORY)
 
 # 4. Use Cases
 ## UC-001: [Name]
+
 | Field | Details |
 |-------|---------|
-| **Actor** | ... |
-| **Preconditions** | ... |
-| **Main Flow** | 1. ... 2. ... |
-| **Alt Flow A** | ... |
-| **Related FRs** | FR-00x, FR-00x |
+| **Actor** | [Actor name] |
+| **Preconditions** | [What must be true before — write "None" if nothing required] |
+| **Main Flow** | 1. [Step one] <br/> 2. [Step two] <br/> 3. [Step three] |
+| **Alt Flow A** | [Alternate path A — keep brief] |
+| **Alt Flow B** | [Alternate path B — keep brief, omit if not needed] |
+| **Related FRs** | FR-00X, FR-00X |
+
+--- USE CASE EXAMPLE ---
+## UC-001: Browse and Discover Products
+
+| Field | Details |
+|-------|---------|
+| **Actor** | Guest User or Registered Customer |
+| **Preconditions** | User has opened the mobile app |
+| **Main Flow** | 1. User lands on the Home Screen <br/> 2. User taps a category to view the product grid <br/> 3. User applies size/color/price filters <br/> 4. User scrolls the product grid — lazy loading triggers <br/> 5. User taps a product card to open the Product Detail Screen |
+| **Alt Flow A** | User taps the search icon, types a query, sees live results, taps a result to open the Product Detail Screen |
+| **Alt Flow B** | User taps the wishlist heart icon without logging in — a prompt asks the user to log in or register |
+| **Related FRs** | FR-001, FR-002, FR-003 |
 
 ---
 
@@ -116,41 +145,62 @@ APPROVED DOCUMENT STRUCTURE (MANDATORY)
 ## Glossary
 | Term | Definition |
 |------|-----------|
+| [Term 1] | [Definition] |
+| [Term 2] | [Definition] |
 
 ════════════════════════════════════════
 ABSOLUTE RULES — NEVER VIOLATE THESE
 ════════════════════════════════════════
 
-FORMAT RULES:
+FRAGMENTATION RULES:
+✅ Combine related actions into single FRs — e.g., all profile actions = 1 FR, all product CRUD = 1 FR
+✅ Target 60–80 FRs maximum per project. If you exceed 80 FRs, consolidate further.
+✅ Each subsection ≤ 20 FRs. Use more subsections if needed to organize cleanly.
+❌ Do NOT list every button, input field, or screen as its own FR
+❌ Do NOT add per-item FRs (e.g., one FR per category, one FR per page)
+
+SUBSECTION RULES:
+✅ Use descriptive subsection names with em dash: ### 3.1.1 Customer App — Browsing and Discovery
+✅ FR numbering is continuous across ALL subsections (FR-001 → FR-080, not restarting per subsection)
+❌ Do NOT restart FR numbering at each subsection
+
+FR FORMAT:
 ✅ FR format: ALWAYS use the bullet list format above (Description, Inputs, Outputs, Priority, Traceability)
-✅ NFR format: ALWAYS use the bullet list format above (Category, Description, Metric)
-❌ NEVER use Attribute/Detail table format for FRs or NFRs
+❌ NEVER use Attribute/Detail table format for FRs
 ❌ NEVER use "Critical" as a priority — only High / Medium / Low are allowed
-❌ NEVER include a Revision History table — it is permanently banned
-❌ NEVER include these sections: References, Document Overview, Assumptions & Dependencies, Hardware Interfaces, Communication Interfaces, Postconditions in Use Cases, version numbers inside Scope text
+
+OUT OF SCOPE RULES:
+✅ Write meaningful Out of Scope items — e.g., "Customer-vendor chat", "Multi-vendor cart", "Loyalty points"
+❌ NEVER write "None proposed at this time" — if nothing is excluded, write "No exclusions at this time"
+❌ Any item listed in Out of Scope MUST NOT appear anywhere as an FR, UC, or UC step
+
+DOCUMENT COMPLETENESS:
+✅ Generate ALL sections: 1, 2, 3, 4, and 5 (Appendices with Glossary)
+❌ NEVER skip or omit sections — if a section has no content, write "N/A" or "None" with explanation
+✅ Always include the Glossary table in Section 5
+
+FORBIDDEN:
+❌ NEVER include these sections: References, Document Overview, Assumptions & Dependencies, Hardware Interfaces, Communication Interfaces, version numbers inside Scope text
+❌ NEVER add these fields to Use Case tables: Postconditions, Trigger, Business Rules, Use Case Name (as a table row), Extensions, 4.1/4.2 sub-sections, A1/A2 sub-numbering
+
 
 WRITING RULES:
 ✅ Use SHALL for mandatory requirements, SHOULD for recommended
-✅ Every requirement must be atomic, testable, unambiguous, and traceable
 ✅ Always quantify: response times, thresholds, sizes, counts — never vague language
-✅ Organize FRs by user role / dashboard (e.g., 3.1.1 Customer App, 3.1.2 Admin Dashboard)
 ❌ Never write "the system should be fast" — always specify exact metrics
-❌ HTML tag names mentioned in descriptions (e.g. \u003chead>, \u003ctitle>, \u003cmeta>, \u003cbody>, \u003cdiv>) MUST be wrapped in backticks like \u0060<head>\u0060 so they are treated as literal text, NOT as HTML elements. Failure to do this will corrupt the document.
+❌ HTML tag names (e.g. <head>, <title>, <meta>) MUST be wrapped in backticks like \`<head>\` so they are treated as literal text
 
-🚫 CRITICAL SCOPE RULE — Out of Scope items are FORBIDDEN
-❌ ANYTHING listed under "Out of Scope" in section 1.2 MUST NOT appear anywhere in the document as:
+SCOPE ENFORCEMENT:
+🚫 ANYTHING listed under "Out of Scope" in section 1.2 MUST NOT appear anywhere in the document as:
    - A Functional Requirement (FR-xxx)
    - A Use Case (UC-xxx)
    - A Use Case step or description
-   - Any FR description or bullet
 If section 1.2 lists X as Out of Scope, then X shall have ZERO requirement entries in the entire document.
-Before saving any generated FR or UC, verify it does not contradict or overlap with the Out of Scope list.
 This rule takes priority over all other rules.
 
 CLIENT QUESTIONNAIRE ANSWERS:
 ${JSON.stringify(questionnaireAnswers, null, 2)}`;
 }
-
 function buildChatEditPrompt(currentSrsMarkdown, userMessage, chatHistory = []) {
   // IMPORTANT: SRS documents are large. We need to preserve the full document so the AI
   // can apply edits correctly. Truncating causes section loss (see project #149 Stripe bug).

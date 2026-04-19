@@ -170,18 +170,6 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // GET /projects/:projectId/chat/stream?message=... (SSE streaming chat)
 router.get('/stream', authMiddleware, async (req, res) => {
-  // Validate project access BEFORE flushing headers — checkProjectAccess
-  // Validate project access BEFORE flushing SSE headers
-  const project = await checkProjectAccess(req, res);
-  if (!project) return;
-
-  const message = req.query.message;
-  if (!message || !message.trim()) {
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(400).json({ error: 'Message query param required' });
-  }
-
-  // Now flush SSE headers — after this point, use send() for all responses
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -189,10 +177,22 @@ router.get('/stream', authMiddleware, async (req, res) => {
   res.flushHeaders();
 
   const send = (data) => {
-    if (!res.destroyed) {
+    if (res.writableEnded || res.destroyed) return;
+    try {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (err) {
+      // Broken pipe — client disconnected, ignore
     }
   };
+
+  const message = req.query.message;
+  if (!message || !message.trim()) {
+    send({ type: 'error', message: 'Message query param required' });
+    return res.end();
+  }
+
+  const project = await checkProjectAccess(req, res);
+  if (!project) return;
 
   try {
     // Get current SRS version
@@ -319,14 +319,16 @@ router.get('/stream', authMiddleware, async (req, res) => {
     res.end();
 
     // Process AI job in background (after SSE is closed)
+    // Note: setImmediate() is NOT a Promise — errors must be caught INSIDE the callback
+    console.log(`[Chat] Scheduling background job for project ${project.id}, message:`, message.substring(0, 30));
     setImmediate(async () => {
+      console.log(`[Chat] Background job starting for project ${project.id}`);
       try {
         const prompt = buildChatEditPrompt(currentSrsMarkdown, message.trim(), chatHistory);
         let aiResponse = await enqueue(
           () => callSrsAgentWithRetry(prompt),
           { projectId: project.id, projectName: project.name, type: 'editing' }
         );
-
         // ── Parse AI response type by prefix ──────────────────────────────
         const trimmed = aiResponse.trim();
 
@@ -413,40 +415,42 @@ router.get('/stream', authMiddleware, async (req, res) => {
         if (updatedMarkdown.length < 500 || !updatedMarkdown.includes('#')) {
           // Check if it's a meaningful conversational reply (not just garbage)
           const isGarbage = updatedMarkdown.length < 10 || /^[^a-zA-Z\u0600-\u06FF]{5,}$/.test(updatedMarkdown.trim());
+          console.log(`[Chat] Short reply (not garbage, not diff) for project ${project.id}: ${updatedMarkdown.substring(0, 60)}`);
           if (isGarbage) {
+            // Garbage — save as error
             console.error(`[Chat] Invalid AI response for project ${project.id}: length=${updatedMarkdown.length}`);
             await pool.query(
               'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
               [project.id, 'assistant', '⚠️ Could not process your request — the AI response was invalid. Please try again with more detail.', currentSrsVersion.version, 'error', userMessage.id]
             );
+            return;
+          }
+
           // SAFETY CHECK: if AI returned DIFF SUMMARY after a user confirmation,
-            // skip saving it as info and trigger background generation instead
-            const trimmedLower = updatedMarkdown.toLowerCase();
-            const userMsgLower = (userMessage?.content || '').toLowerCase().trim();
-            const looksLikeDiffSummary = trimmedLower.includes('diff summary') || trimmedLower.includes('**diff');
-            const userWasConfirming = /^yes|yea|yep|ok|okay|confirm|proceed|go ahead|do it|start|make|add|insert|change|update|remove|delete/i.test(userMsgLower);
+          // skip saving it as info and trigger background generation instead
+          const trimmedLower = updatedMarkdown.toLowerCase();
+          const userMsgLower = (userMessage?.content || '').toLowerCase().trim();
+          const looksLikeDiffSummary = trimmedLower.includes('diff summary') || trimmedLower.includes('**diff');
+          const userWasConfirming = /^yes|yea|yep|ok|okay|confirm|proceed|go ahead|do it|start|make|add|insert|change|update|remove|delete/i.test(userMsgLower);
 
-            if (looksLikeDiffSummary && userWasConfirming) {
-              // User confirmed but AI gave diff summary instead of GENERATE: — force generation
-              console.log(`[Chat] AI returned diff summary after confirmation for project ${project.id} — forcing background generation`);
-              await pool.query(
-                'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
-                [project.id, 'assistant', updatedMarkdown.trim(), currentSrsVersion.version, 'info', userMessage.id]
-              );
-              // Enqueue background generation job
-              const { enqueue } = require('../services/generationQueue');
-              enqueue({ projectId: project.id, userId: user.id, userMessageId: userMessage.id, action: 'edit', editMessageId: userMessage.id });
-              return;
-            }
-
-            // Valid short reply (cancellation, question, info) — save as-is
-            console.log(`[Chat] Short conversational reply for project ${project.id}: ${updatedMarkdown.substring(0, 80)}`);
+          if (looksLikeDiffSummary && userWasConfirming) {
+            // User confirmed but AI gave diff summary instead of GENERATE: — force generation
+            console.log(`[Chat] AI returned diff summary after confirmation for project ${project.id} — forcing background generation`);
             await pool.query(
               'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
               [project.id, 'assistant', updatedMarkdown.trim(), currentSrsVersion.version, 'info', userMessage.id]
             );
+            const { enqueue } = require('../services/generationQueue');
+            enqueue({ projectId: project.id, userId: user.id, userMessageId: userMessage.id, action: 'edit', editMessageId: userMessage.id });
+            return;
           }
-          return;
+
+          // Valid short reply (cancellation, question, info) — save as-is
+          console.log(`[Chat] Short conversational reply for project ${project.id}: ${updatedMarkdown.substring(0, 80)}`);
+          await pool.query(
+            'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
+            [project.id, 'assistant', updatedMarkdown.trim(), currentSrsVersion.version, 'info', userMessage.id]
+          );
         }
 
         // Calculate next version — fetch LATEST to avoid race conditions

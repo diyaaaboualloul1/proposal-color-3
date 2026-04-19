@@ -70,25 +70,23 @@ export default function Questionnaire({ projectId, onSubmitSuccess, onProjectUpd
   const [showConfirm, setShowConfirm] = useState(false)
   const textareaRefs = useRef({})
 
-  // Auto-resize a textarea
+  // Auto-resize a single textarea
   const autoResize = (el) => {
     if (!el) return
     el.style.height = 'auto'
     el.style.height = Math.max(el.scrollHeight, el.name === 'core_features' ? 120 : 60) + 'px'
   }
 
-  // Resize all textareas — double rAF ensures DOM has fully settled
+  // On initial load, resize all textareas once
   useEffect(() => {
     if (!loading) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          Object.values(textareaRefs.current).forEach(el => {
-            if (el) autoResize(el)
-          })
+          Object.values(textareaRefs.current).forEach(el => { if (el) autoResize(el) })
         })
       })
     }
-  }, [form, loading])
+  }, [loading])
 
   const fetchQuestionnaire = async () => {
     try {
