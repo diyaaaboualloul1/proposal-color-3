@@ -339,32 +339,7 @@ export default function ShareView() {
               )}
             </div>
 
-            {/* Version selector */}
-            {data?.versions && data.versions.length > 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <label style={{ fontSize: 12, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Version</label>
-                <select
-                  value={selectedVersion || ''}
-                  onChange={e => setSelectedVersion(e.target.value)}
-                  style={{
-                    backgroundColor: '#161b27',
-                    border: '1px solid #1e2533',
-                    color: '#f1f5f9',
-                    padding: '6px 10px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {data.versions.map(v => (
-                    <option key={v.version} value={v.version} style={{ backgroundColor: '#161b27' }}>
-                      v{v.version} — {formatDate(v.created_at)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+
           </div>
         </div>
       </div>
