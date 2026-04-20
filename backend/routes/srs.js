@@ -64,8 +64,8 @@ async function checkProjectAccess(req, res) {
 
 async function getNextVersion(projectId) {
   const result = await pool.query(
-    'SELECT version FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
-    [projectId]
+    'SELECT version FROM srs_versions WHERE project_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1',
+    [projectId, 'technical']
   );
   
   if (result.rows.length === 0) {
@@ -892,8 +892,8 @@ router.get('/:version/download-md', authMiddleware, async (req, res) => {
 
 async function getNextMajorVersion(projectId) {
   const result = await pool.query(
-    'SELECT version FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
-    [projectId]
+    'SELECT version FROM srs_versions WHERE project_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1',
+    [projectId, 'technical']
   );
   if (result.rows.length === 0) return '1.0';
   const parts = result.rows[0].version.split('.');
