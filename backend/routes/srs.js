@@ -318,7 +318,8 @@ router.all('/client/generate', authMiddleware, async (req, res) => {
     if (!lastClientVersion) {
       nextClientVersion = '1.0';
     } else {
-      const [major, minor] = lastClientVersion.split('.').map(Number);
+      const stored = lastClientVersion.replace('client-', '').replace(/^v/, '');
+      const [major, minor] = stored.split('.').map(Number);
       nextClientVersion = `${major}.${minor + 1}`;
     }
 
