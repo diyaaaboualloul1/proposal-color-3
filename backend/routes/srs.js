@@ -744,6 +744,18 @@ router.delete('/:version', authMiddleware, async (req, res) => {
       try { await fs.unlink(srsVersion.pdf_path); } catch (e) { /* file may not exist */ }
     }
 
+    // Also delete any client summaries linked to this version
+    const clientRows = await pool.query(
+      'SELECT * FROM srs_versions WHERE project_id = $1 AND type = $2 AND parent_version = $3',
+      [project.id, 'client', version]
+    );
+    for (const cr of clientRows.rows) {
+      if (cr.file_path) { try { await fs.unlink(cr.file_path); } catch (e) { /* ignore */ } }
+      if (cr.pdf_path) { try { await fs.unlink(cr.pdf_path); } catch (e) { /* ignore */ } }
+      await pool.query('DELETE FROM srs_versions WHERE id = $1', [cr.id]);
+      console.log(`[SRS] Deleted client summary ${cr.version} (orphaned by deletion of ${version})`);
+    }
+
     // Delete DB row
     await pool.query('DELETE FROM srs_versions WHERE id = $1', [srsVersion.id]);
 

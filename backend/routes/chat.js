@@ -357,7 +357,7 @@ router.get('/stream', authMiddleware, async (req, res) => {
           );
           await pool.query(
             'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
-            [project.id, 'assistant', `✅ Client Summary v${nextClientVersion} generated from v${parentVersion}! You can download it from the SRS tab.`, `client-v${nextClientVersion}`, 'success', userMessage.id]
+            [project.id, 'assistant', `✅ Client Summary v${nextClientVersion} generated from v${parentVersion}! Check the History tab to download it.`, `client-v${nextClientVersion}`, 'success', userMessage.id]
           );
         } catch (err) {
           console.error('[Chat] /client error:', err);
