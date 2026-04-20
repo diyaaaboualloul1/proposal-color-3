@@ -251,6 +251,115 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /projects/:projectId/srs/client/generate — trigger client summary generation
+// GET /projects/:projectId/srs/client/generate?check=1 — just return next version info (no generation)
+router.all('/client/generate', authMiddleware, async (req, res) => {
+  const project = await checkProjectAccess(req, res);
+  if (!project) return;
+
+  // GET ?check=1 — return next version info only
+  if (req.method === 'GET' && req.query.check === '1') {
+    const latestResult = await pool.query(
+      `SELECT * FROM srs_versions WHERE project_id = $1 AND type = 'technical' ORDER BY created_at DESC LIMIT 1`,
+      [project.id]
+    );
+    if (latestResult.rows.length === 0) {
+      return res.status(400).json({ error: 'No technical SRS found.' });
+    }
+    const parentVersion = latestResult.rows[0].version;
+    const clientVersionsResult = await pool.query(
+      `SELECT version FROM srs_versions WHERE project_id = $1 AND type = 'client' AND parent_version = $2 ORDER BY created_at DESC LIMIT 1`,
+      [project.id, parentVersion]
+    );
+    let nextVersion = clientVersionsResult.rows.length === 0 ? '1.0' : (() => {
+      const [maj, min] = clientVersionsResult.rows[0].version.split('.').map(Number);
+      return `${maj}.${min + 1}`;
+    })();
+    return res.json({ nextVersion, parentVersion });
+  }
+
+  // POST — actual SSE generation (must be after the GET check)
+  const send = (data) => {
+    if (!res.destroyed) {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+  };
+
+  const projectId = project.id;
+  send({ type: 'progress', message: 'Finding latest SRS version...' });
+
+  try {
+    // 1. Get latest technical SRS version
+    const latestResult = await pool.query(
+      `SELECT * FROM srs_versions WHERE project_id = $1 AND type = 'technical' ORDER BY created_at DESC LIMIT 1`,
+      [projectId]
+    );
+
+    if (latestResult.rows.length === 0) {
+      send({ type: 'error', message: 'No technical SRS found. Please generate an SRS first.' });
+      return res.end();
+    }
+
+    const parentVersion = latestResult.rows[0];
+    const parentVersionNumber = parentVersion.version;
+    send({ type: 'progress', message: `Reading SRS v${parentVersionNumber}...` });
+
+    // 2. Read the latest SRS markdown
+    const srsMarkdown = await fs.readFile(parentVersion.file_path, 'utf8');
+
+    // 3. Determine next client version number for this parent
+    const clientVersionsResult = await pool.query(
+      `SELECT version FROM srs_versions WHERE project_id = $1 AND type = 'client' AND parent_version = $2 ORDER BY created_at DESC`,
+      [projectId, parentVersionNumber]
+    );
+    const lastClientVersion = clientVersionsResult.rows[0]?.version;
+    let nextClientVersion;
+    if (!lastClientVersion) {
+      nextClientVersion = '1.0';
+    } else {
+      const [major, minor] = lastClientVersion.split('.').map(Number);
+      nextClientVersion = `${major}.${minor + 1}`;
+    }
+
+    send({ type: 'progress', message: `Generating Client Summary v${nextClientVersion} from v${parentVersionNumber}...` });
+
+    // 4. Call AI with client prompt
+    const { buildClientPrompt, callSrsAgentStream } = require('../services/srsAgent');
+    const clientPrompt = buildClientPrompt(srsMarkdown, project.name, parentVersionNumber);
+
+    let clientMarkdown = '';
+    await callSrsAgentStream(clientPrompt, (chunk) => {
+      clientMarkdown += chunk;
+      send({ type: 'chunk', content: chunk });
+    });
+
+    // 5. Save MD file
+    const projectPath = path.join(__dirname, '../../projects', String(projectId));
+    await fs.mkdir(projectPath, { recursive: true });
+    const mdPath = path.join(projectPath, `client-v${nextClientVersion}.md`);
+    await fs.writeFile(mdPath, clientMarkdown);
+    send({ type: 'progress', message: 'Generating PDF...' });
+
+    // 6. Generate PDF
+    const pdfPath = mdPath.replace('.md', '.pdf');
+    await generatePdfFromMarkdown(clientMarkdown, pdfPath, null, `client-v${nextClientVersion}`, new Date().toISOString().split('T')[0], 'Client Summary');
+
+    // 7. Save to DB
+    await pool.query(
+      `INSERT INTO srs_versions (project_id, version, file_path, pdf_path, type, parent_version, created_by)
+       VALUES ($1, $2, $3, $4, 'client', $5, $6)`,
+      [projectId, `client-v${nextClientVersion}`, mdPath, pdfPath, parentVersionNumber, req.user.id]
+    );
+
+    send({ type: 'done', version: `client-v${nextClientVersion}`, parentVersion: parentVersionNumber });
+    res.end();
+  } catch (err) {
+    console.error('Client generate error:', err);
+    send({ type: 'error', message: err.message });
+    res.end();
+  }
+});
+
 // GET /projects/:projectId/srs/diff?v1=1.0&v2=1.1  (must be before /:version)
 // GET /projects/:projectId/srs/:version/export-json
 router.get('/:version/export-json', authMiddleware, async (req, res) => {

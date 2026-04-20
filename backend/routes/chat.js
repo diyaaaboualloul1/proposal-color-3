@@ -314,6 +314,62 @@ router.get('/stream', authMiddleware, async (req, res) => {
       return;
     }
 
+    // Handle /client command — redirect to client generation endpoint via SSE
+    if (message.trim() === '/client') {
+      send({ type: 'queued', message: 'Generating client summary...', userMessageId: userMessage.id, userMessageCreatedAt: userMessage.created_at });
+      res.end();
+      setImmediate(async () => {
+        try {
+          const latestResult = await pool.query(
+            `SELECT * FROM srs_versions WHERE project_id = $1 AND type = 'technical' ORDER BY created_at DESC LIMIT 1`,
+            [project.id]
+          );
+          if (latestResult.rows.length === 0) {
+            await pool.query(
+              'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
+              [project.id, 'assistant', '⚠️ No technical SRS found. Please generate an SRS first.', currentSrsVersion.version, 'error', userMessage.id]
+            );
+            return;
+          }
+          const parentVersion = latestResult.rows[0].version;
+          const clientVersionsResult = await pool.query(
+            `SELECT version FROM srs_versions WHERE project_id = $1 AND type = 'client' AND parent_version = $2 ORDER BY created_at DESC LIMIT 1`,
+            [project.id, parentVersion]
+          );
+          let nextClientVersion = clientVersionsResult.rows.length === 0 ? '1.0' : (() => {
+            const [maj, min] = clientVersionsResult.rows[0].version.split('.').map(Number);
+            return `${maj}.${min + 1}`;
+          })();
+          const srsMarkdown = await fs.readFile(latestResult.rows[0].file_path, 'utf8');
+          const { buildClientPrompt, callSrsAgentWithRetry } = require('../services/srsAgent');
+          const clientPrompt = buildClientPrompt(srsMarkdown, project.name, parentVersion);
+          const clientMarkdown = await callSrsAgentWithRetry(clientPrompt, 8000);
+          const projectPath = path.join(__dirname, '../../projects', String(project.id));
+          await fs.mkdir(projectPath, { recursive: true });
+          const mdPath = path.join(projectPath, `client-v${nextClientVersion}.md`);
+          await fs.writeFile(mdPath, clientMarkdown);
+          const pdfPath = mdPath.replace('.md', '.pdf');
+          const { generatePdfFromMarkdown } = require('../services/pdfGenerator');
+          await generatePdfFromMarkdown(clientMarkdown, pdfPath, null, `client-v${nextClientVersion}`, new Date().toISOString().split('T')[0], 'Client Summary');
+          await pool.query(
+            `INSERT INTO srs_versions (project_id, version, file_path, pdf_path, type, parent_version, created_by) VALUES ($1, $2, $3, $4, 'client', $5, $6)`,
+            [project.id, `client-v${nextClientVersion}`, mdPath, pdfPath, parentVersion, req.user.id]
+          );
+          await pool.query(
+            'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
+            [project.id, 'assistant', `✅ Client Summary v${nextClientVersion} generated from v${parentVersion}! You can download it from the SRS tab.`, `client-v${nextClientVersion}`, 'success', userMessage.id]
+          );
+        } catch (err) {
+          console.error('[Chat] /client error:', err);
+          await pool.query(
+            'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
+            [project.id, 'assistant', `⚠️ Client generation failed: ${err.message}`, currentSrsVersion.version, 'error', userMessage.id]
+          );
+        }
+      });
+      return;
+    }
+
     // Acknowledge immediately — frontend polls for result
     send({ type: 'queued', message: 'Your request is being processed. This may take up to 2 minutes...', userMessageId: userMessage.id, userMessageCreatedAt: userMessage.created_at });
     res.end();

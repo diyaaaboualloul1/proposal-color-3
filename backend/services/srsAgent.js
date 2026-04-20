@@ -524,4 +524,70 @@ function postProcessSrs(markdown) {
   return result;
 }
 
-module.exports = { callSrsAgent, callSrsAgentWithRetry, callSrsAgentStream, buildGenerationPrompt, buildChatEditPrompt, buildDiffPrompt, postProcessSrs };
+function buildClientPrompt(srsMarkdown, projectName, parentVersion) {
+  const today = new Date().toISOString().split('T')[0];
+  return `IMPORTANT: Return ONLY the raw Markdown document. Do NOT write summaries, explanations, or any text outside the document. Start directly with the content and end with the last section.
+
+You are a senior consultant writing a clean, non-technical Client Summary document for the project "${projectName}". This document will be read by the CLIENT — a non-technical person who needs to understand what is being built.
+
+The source SRS is provided below. Rewrite it into plain, client-friendly language. Do NOT use technical terms, FR/NFR/UC codes, or developer jargon. Write as if you are explaining to a business owner.
+
+════════════════════════════════════════
+CLIENT DOCUMENT RULES (STRICT)
+════════════════════════════════════════
+
+1. NEVER write: "The system SHALL", "FR-001", "NFR-002", "Use Case", "API endpoint", "database"
+2. NEVER write: bullet points longer than 2 lines. Keep them short and punchy.
+3. Use: "The platform will", "Users can", "You will receive", "This includes"
+4. Every feature bullet: short name + 1-2 sentence explanation
+5. Keep the document under 15 pages (aim for 8-12)
+6. Output must be a valid Markdown document starting with a heading
+
+════════════════════════════════════════
+REQUIRED SECTIONS
+════════════════════════════════════════
+
+# ${projectName} — Client Summary
+**Based on:** SRS v${parentVersion}
+**Date:** ${today}
+**Prepared by:** Fifty Studios Holding Company
+
+## Project Overview
+[2-3 sentences describing what this project is and who it serves. Plain language only.]
+
+## What's Included
+[Bullets — what the project WILL deliver. Use plain language.]
+
+## What's NOT Included
+[Bullets — what is explicitly OUT OF SCOPE. Be specific and helpful.]
+
+## Key Features
+[Name of feature]
+: Short 1-2 sentence explanation of this feature and how it helps the user.
+
+[Name of feature]
+: Short 1-2 sentence explanation.
+
+[... continue for all major features from the SRS ...]
+
+## Who Uses This — And What They See
+[User Role A] — [1 sentence describing who this is and what they do on the platform]
+Screens they access: [Screen 1], [Screen 2], [Screen 3]
+
+[User Role B] — [1 sentence]
+Screens they access: [Screen A], [Screen B]
+
+[... continue for all user roles ...]
+
+## What You Will Receive
+[Bullets — final deliverables: web app, mobile app, admin panel, documentation, etc.]
+
+════════════════════════════════════════
+SOURCE SRS (for rewriting):
+════════════════════════════════════════
+
+${srsMarkdown}
+`;
+}
+
+module.exports = { callSrsAgent, callSrsAgentWithRetry, callSrsAgentStream, buildGenerationPrompt, buildChatEditPrompt, buildDiffPrompt, postProcessSrs, buildClientPrompt };

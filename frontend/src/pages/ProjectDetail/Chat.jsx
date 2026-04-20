@@ -39,6 +39,7 @@ export default function Chat({ projectId, project, onVersionCreated }) {
   const [showTips, setShowTips] = useState(false)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [undoPending, setUndoPending] = useState(false)
+  const [clientPending, setClientPending] = useState(null) // { nextVersion, parentVersion }
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
@@ -123,6 +124,36 @@ export default function Chat({ projectId, project, onVersionCreated }) {
     setTimeout(() => handleSendText('/undo'), 50)
   }
 
+  // /client confirmation — fetch next client version then show confirm dialog
+  const handleClientConfirm = async () => {
+    try {
+      const token = localStorage.getItem('srs_token')
+      const baseURL = import.meta.env.VITE_API_URL || '/api'
+      const res = await fetch(`${baseURL}/projects/${projectId}/srs/client/generate?check=1`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAllMessages(prev => [...prev, { id: Date.now(), role: 'assistant', content: `⚠️ ${data.error || 'Could not start client generation.'}`, created_at: new Date().toISOString() }])
+        return
+      }
+      setClientPending({ nextVersion: data.nextVersion, parentVersion: data.parentVersion })
+    } catch {
+      setAllMessages(prev => [...prev, { id: Date.now(), role: 'assistant', content: '⚠️ Could not reach the server.', created_at: new Date().toISOString() }])
+    }
+  }
+
+  const handleClientYes = () => {
+    setClientPending(null)
+    setInput('/client')
+    setTimeout(() => handleSendText('/client'), 50)
+  }
+
+  const handleClientNo = () => {
+    setClientPending(null)
+    setAllMessages(prev => [...prev, { id: Date.now(), role: 'assistant', content: '❌ Client summary cancelled.', created_at: new Date().toISOString() }])
+  }
+
   const handleSend = async () => {
     const text = input.trim()
     if (!text || sending || isBackgroundProcessing) return
@@ -134,12 +165,19 @@ export default function Chat({ projectId, project, onVersionCreated }) {
       return
     }
 
+    // /client — intercept with confirmation dialog
+    if (text === '/client' && !clientPending) {
+      handleClientConfirm()
+      return
+    }
+
     handleSendText(text)
   }
 
   const handleSendText = async (text) => {
     if (!text || sending || isBackgroundProcessing) return
     setUndoPending(false)
+    setClientPending(null)
     setSending(true)
     setInput('')
     setError('')
@@ -363,6 +401,59 @@ export default function Chat({ projectId, project, onVersionCreated }) {
                 <motion.button
                   whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                   onClick={() => setUndoPending(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid #1e2533', color: '#94a3b8' }}
+                >
+                  Cancel
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Client Summary confirmation dialog */}
+      <AnimatePresence>
+        {clientPending && (
+          <motion.div
+            className="absolute inset-0 z-20 flex items-center justify-center"
+            style={{ background: 'rgba(3,7,18,0.7)', backdropFilter: 'blur(6px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="rounded-2xl p-6 max-w-sm w-full mx-6"
+              style={{ background: '#0d1117', border: '1px solid rgba(244,123,32,0.3)', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
+              initial={{ scale: 0.9, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 10 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(244,123,32,0.1)', border: '1px solid rgba(244,123,32,0.25)' }}>
+                  <span style={{ fontSize: 18 }}>📄</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#f1f5f9' }}>Generate Client Summary?</p>
+                  <p className="text-xs" style={{ color: '#475569' }}>This will create a non-technical summary from the latest SRS.</p>
+                </div>
+              </div>
+              <p className="text-xs mb-5 px-1" style={{ color: '#64748b' }}>
+                This will create <span style={{ color: '#F47B20', fontWeight: 600 }}>Client Summary v{clientPending.nextVersion}</span> from <span style={{ color: '#F47B20', fontWeight: 600 }}>v{clientPending.parentVersion}</span>.
+              </p>
+              <div className="flex gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  onClick={handleClientYes}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'rgba(244,123,32,0.15)', border: '1px solid rgba(244,123,32,0.4)', color: '#F47B20' }}
+                >
+                  ✅ Yes, generate
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  onClick={handleClientNo}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid #1e2533', color: '#94a3b8' }}
                 >
@@ -810,6 +901,7 @@ export default function Chat({ projectId, project, onVersionCreated }) {
                       { cmd: '/diff',   icon: '🔍', desc: 'AI summary of what changed in the last edit' },
                       { cmd: '/undo',   icon: '↩️', desc: 'Roll back to the previous SRS version' },
                       { cmd: '/scope',  icon: '🗺️', desc: 'Summarize the full project scope in plain English' },
+                      { cmd: '/client', icon: '📄', desc: 'Generate a client-friendly summary from the latest SRS' },
                     ].map(({ cmd, icon, desc }) => (
                       <motion.button
                         key={cmd}
