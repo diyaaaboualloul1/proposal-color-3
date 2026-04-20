@@ -559,3 +559,143 @@ async function logActivity(pool, userId, projectId, action, details = {}) {
 
 module.exports = router;
 module.exports.logActivity = logActivity;
+
+// GET /projects/:id/share-links — list all share links
+router.get('/:id/share-links', async (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  if (isNaN(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
+
+  try {
+    const projectResult = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+    if (projectResult.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+
+    const project = projectResult.rows[0];
+    if (req.user.role !== 'super_admin' && project.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const linksResult = await pool.query(
+      `SELECT id, token, srs_type, srs_version, status, expires_at, created_at,
+              (SELECT email FROM users WHERE id = share_tokens.created_by) as created_by_email
+       FROM share_tokens
+       WHERE project_id = $1
+       ORDER BY created_at DESC`,
+      [projectId]
+    );
+
+    res.json({ links: linksResult.rows });
+  } catch (err) {
+    console.error('List share links error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /projects/:id/share-links — generate share link for specific version
+router.post('/:id/share-links', async (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  if (isNaN(projectId)) return res.status(400).json({ error: 'Invalid project ID' });
+
+  const { srs_type, srs_version } = req.body;
+  if (!srs_type || !srs_version) {
+    return res.status(400).json({ error: 'srs_type and srs_version are required' });
+  }
+  if (!['technical', 'client'].includes(srs_type)) {
+    return res.status(400).json({ error: 'srs_type must be "technical" or "client"' });
+  }
+
+  try {
+    const projectResult = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+    if (projectResult.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+
+    const project = projectResult.rows[0];
+    if (req.user.role !== 'super_admin' && project.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Verify version exists
+    const versionResult = await pool.query(
+      `SELECT * FROM srs_versions WHERE project_id = $1 AND version = $2 AND type = $3`,
+      [projectId, srs_version, srs_type]
+    );
+    if (versionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'SRS version not found' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query(
+      `INSERT INTO share_tokens (project_id, token, created_by, srs_type, srs_version, status)
+       VALUES ($1, $2, $3, $4, $5, 'active')`,
+      [projectId, token, req.user.id, srs_type, srs_version]
+    );
+
+    const shareUrl = `${SHARE_BASE_URL}/share/${token}`;
+    res.json({ token, shareUrl, srs_type, srs_version });
+  } catch (err) {
+    console.error('Create share link error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /projects/:id/share-links/:tokenId — toggle status (revoke/activate)
+router.patch('/:id/share-links/:tokenId', async (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  const tokenId = parseInt(req.params.tokenId, 10);
+  if (isNaN(projectId) || isNaN(tokenId)) return res.status(400).json({ error: 'Invalid IDs' });
+
+  try {
+    const projectResult = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+    if (projectResult.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+
+    const project = projectResult.rows[0];
+    if (req.user.role !== 'super_admin' && project.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const linkResult = await pool.query(
+      'SELECT * FROM share_tokens WHERE id = $1 AND project_id = $2',
+      [tokenId, projectId]
+    );
+    if (linkResult.rows.length === 0) return res.status(404).json({ error: 'Link not found' });
+
+    const currentStatus = linkResult.rows[0].status;
+    const newStatus = currentStatus === 'active' ? 'revoked' : 'active';
+    await pool.query(
+      'UPDATE share_tokens SET status = $1 WHERE id = $2',
+      [newStatus, tokenId]
+    );
+
+    res.json({ id: tokenId, status: newStatus });
+  } catch (err) {
+    console.error('Toggle share link error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /projects/:id/share-links/:tokenId — delete link permanently
+router.delete('/:id/share-links/:tokenId', async (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  const tokenId = parseInt(req.params.tokenId, 10);
+  if (isNaN(projectId) || isNaN(tokenId)) return res.status(400).json({ error: 'Invalid IDs' });
+
+  try {
+    const projectResult = await pool.query('SELECT * FROM projects WHERE id = $1', [projectId]);
+    if (projectResult.rows.length === 0) return res.status(404).json({ error: 'Project not found' });
+
+    const project = projectResult.rows[0];
+    if (req.user.role !== 'super_admin' && project.created_by !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const linkResult = await pool.query(
+      'SELECT * FROM share_tokens WHERE id = $1 AND project_id = $2',
+      [tokenId, projectId]
+    );
+    if (linkResult.rows.length === 0) return res.status(404).json({ error: 'Link not found' });
+
+    await pool.query('DELETE FROM share_tokens WHERE id = $1', [tokenId]);
+    res.json({ message: 'Link deleted' });
+  } catch (err) {
+    console.error('Delete share link error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});

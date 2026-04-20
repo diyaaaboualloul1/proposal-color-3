@@ -43,11 +43,16 @@ router.get('/:token', async (req, res) => {
 
     const shareToken = tokenResult.rows[0];
 
+    if (shareToken.status === 'revoked') {
+      return res.status(404).json({ error: 'Link has been revoked' });
+    }
     if (shareToken.expires_at && new Date(shareToken.expires_at) < new Date()) {
       return res.status(404).json({ error: 'Link not found or expired' });
     }
 
     const projectId = shareToken.project_id;
+    const tokenSrsType = shareToken.srs_type;
+    const tokenSrsVersion = shareToken.srs_version;
 
     const projectResult = await pool.query(
       'SELECT name, client_name, created_at FROM projects WHERE id = $1',
@@ -58,16 +63,26 @@ router.get('/:token', async (req, res) => {
     }
 
     const versionsResult = await pool.query(
-      'SELECT version, created_at, drive_share_url FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC',
+      'SELECT version, type, created_at, drive_share_url FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC',
       [projectId]
     );
 
+    // Serve the version specified in the token, or latest technical if none specified
+    let targetVersion = null;
+    let targetType = tokenSrsType || 'technical';
+    if (tokenSrsVersion) {
+      targetVersion = tokenSrsVersion;
+    } else {
+      // Fall back to latest of targetType
+      const latestOfType = versionsResult.rows.find(r => r.type === targetType);
+      targetVersion = latestOfType ? latestOfType.version : (versionsResult.rows[0] ? versionsResult.rows[0].version : null);
+    }
+
     let srs = null;
-    if (versionsResult.rows.length > 0) {
-      const latestVersion = versionsResult.rows[0].version;
+    if (targetVersion) {
       const srsResult = await pool.query(
-        'SELECT version, file_path, created_at, drive_share_url FROM srs_versions WHERE project_id = $1 AND version = $2',
-        [projectId, latestVersion]
+        'SELECT version, type, file_path, created_at, drive_share_url FROM srs_versions WHERE project_id = $1 AND version = $2 AND type = $3',
+        [projectId, targetVersion, targetType]
       );
 
       if (srsResult.rows.length > 0) {
@@ -80,6 +95,7 @@ router.get('/:token', async (req, res) => {
         }
         srs = {
           version: srsRow.version,
+          type: srsRow.type,
           content,
           created_at: srsRow.created_at,
           drive_share_url: srsRow.drive_share_url || null,
@@ -114,6 +130,9 @@ router.get('/:token/srs/:version/download', async (req, res) => {
 
     const shareToken = tokenResult.rows[0];
     if (shareToken.expires_at && new Date(shareToken.expires_at) < new Date()) {
+    if (shareToken.status === 'revoked') {
+      return res.status(404).json({ error: 'Link has been revoked' });
+    }
       return res.status(404).json({ error: 'Link not found or expired' });
     }
 
@@ -171,6 +190,9 @@ router.get('/:token/comments', async (req, res) => {
     }
 
     const shareToken = tokenResult.rows[0];
+    if (shareToken.status === 'revoked') {
+      return res.status(404).json({ error: 'Link has been revoked' });
+    }
     if (shareToken.expires_at && new Date(shareToken.expires_at) < new Date()) {
       return res.status(404).json({ error: 'Link not found or expired' });
     }
@@ -219,6 +241,9 @@ router.post('/:token/comments', async (req, res) => {
     }
 
     const shareToken = tokenResult.rows[0];
+    if (shareToken.status === 'revoked') {
+      return res.status(404).json({ error: 'Link has been revoked' });
+    }
     if (shareToken.expires_at && new Date(shareToken.expires_at) < new Date()) {
       return res.status(404).json({ error: 'Link not found or expired' });
     }
