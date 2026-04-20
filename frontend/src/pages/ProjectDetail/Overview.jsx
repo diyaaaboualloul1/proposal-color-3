@@ -489,7 +489,7 @@ export default function Overview({ project, onUpdate }) {
 
       <AnimatePresence>
         {showLinkModal && (
-          <Modal onClose={() => setShowLinkModal(false)}>
+          <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)}>
             <div className="space-y-5 w-80">
               <h2 className="text-base font-bold" style={{ color: '#f1f5f9' }}>Generate Share Link</h2>
 
