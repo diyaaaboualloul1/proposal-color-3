@@ -98,8 +98,8 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
   };
 
   const technicalVersions = versions.filter(v => v.type !== 'client');
-  const selectedIsClient = selectedVersion?.startsWith('client-');
   const [srsContent, setSrsContent] = useState('')
+  const [selectedVersion, setSelectedVersion] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadingContent, setLoadingContent] = useState(false)
   const [error, setError] = useState('')
@@ -874,16 +874,16 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
           >
             <div className="flex items-center gap-2 flex-1">
               <span className="text-xs font-semibold px-3 py-1.5 rounded-xl" style={{
-                backgroundColor: selectedIsClient ? 'rgba(20,184,166,0.1)' : 'rgba(244,123,32,0.1)',
-                border: `1px solid ${selectedIsClient ? 'rgba(20,184,166,0.25)' : 'rgba(244,123,32,0.25)'}`,
-                color: selectedIsClient ? '#14b8a6' : '#F47B20'
+                backgroundColor: selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.1)' : 'rgba(244,123,32,0.1)',
+                border: `1px solid ${selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.25)' : 'rgba(244,123,32,0.25)'}`,
+                color: selectedVersion?.startsWith('client-') ? '#14b8a6' : '#F47B20'
               }}>
                 v{selectedVersion}{versions.find(v => v.version === selectedVersion)?.created_by_name ? ` — ${versions.find(v => v.version === selectedVersion).created_by_name}` : ''}
               </span>
             </div>
 
             {/* Download MD — only for technical */}
-            {!selectedIsClient && (
+            {!selectedVersion?.startsWith('client-') && (
               <motion.button
                 onClick={handleDownloadMd}
                 disabled={downloadingMd || !selectedVersion}
@@ -925,7 +925,7 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
             </div>
 
             {/* Export JSON — only for technical */}
-            {!selectedIsClient && (
+            {!selectedVersion?.startsWith('client-') && (
               <motion.button
                 onClick={handleExportJson}
                 disabled={exportingJson || !selectedVersion}

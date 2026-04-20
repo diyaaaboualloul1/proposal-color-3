@@ -440,7 +440,7 @@ export default function Chat({ projectId, project, onVersionCreated }) {
                 </div>
               </div>
               <p className="text-xs mb-5 px-1" style={{ color: '#64748b' }}>
-                This will create <span style={{ color: '#F47B20', fontWeight: 600 }}>Client Summary v{clientPending.nextVersion}</span> from <span style={{ color: '#F47B20', fontWeight: 600 }}>v{clientPending.parentVersion}</span>.
+                This will create <span style={{ color: '#F47B20', fontWeight: 600 }}>Client Summary v{clientPending.nextVersion}</span> from <span style={{ color: '#F47B20', fontWeight: 600 }}>the latest details SRS version</span>.
               </p>
               <div className="flex gap-2">
                 <motion.button

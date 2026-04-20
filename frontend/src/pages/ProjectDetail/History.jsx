@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import apiClient from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
@@ -33,6 +34,23 @@ export default function History({ projectId, project }) {
 
   // Drive upload state — map of version string → { uploading, shareUrl, error }
   const [driveStatuses, setDriveStatuses] = useState({})
+
+  // Client sub-row expand/collapse
+  const [expandedParents, setExpandedParents] = useState({})
+  const toggleExpand = (v) => setExpandedParents(prev => ({ ...prev, [v]: !prev[v] }))
+
+  // Group client versions under their technical parent version
+  const grouped = {}
+  const technicalRows = []
+  for (const v of versions) {
+    if (v.type === 'client') {
+      const parent = v.parent_version || ''
+      if (!grouped[parent]) grouped[parent] = []
+      grouped[parent].push(v)
+    } else {
+      technicalRows.push(v)
+    }
+  }
 
   const canDelete = isSuperAdmin() || (user && project && project.created_by === user.id)
   const canUploadDrive = isSuperAdmin() || (user && project && project.created_by === user.id)
@@ -670,26 +688,49 @@ export default function History({ projectId, project }) {
               </thead>
               <tbody>
                 <AnimatePresence>
-                  {versions.map((v, idx) => {
+                  {technicalRows.map((v, idx) => {
                     const srcCfg = SOURCE_COLORS[v.source] || SOURCE_COLORS.ai
+                    const hasChildren = grouped[v.version]?.length > 0
+                    const isExpanded = expandedParents[v.version]
                     return (
-                      <motion.tr
-                        key={v.id || v.version}
-                        custom={idx}
-                        variants={rowVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="border-b transition-colors"
-                        style={{ borderColor: '#1e2533' }}
-                        whileHover={{ backgroundColor: 'rgba(255,255,255,0.015)' }}
-                      >
+                      <React.Fragment key={v.version}>
+                        <motion.tr
+                          custom={idx}
+                          variants={rowVariants}
+                          initial="hidden"
+                          animate="visible"
+                          className="border-b transition-colors"
+                          style={{ borderColor: '#1e2533' }}
+                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.015)' }}
+                        >
                         <td className="px-5 py-4">
-                          <span
-                            className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold"
-                            style={{ backgroundColor: 'rgba(244,123,32,0.12)', color: '#F59340', border: '1px solid rgba(244,123,32,0.2)' }}
-                          >
-                            v{v.version}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {hasChildren ? (
+                              <button
+                                onClick={() => toggleExpand(v.version)}
+                                className="w-5 h-5 flex items-center justify-center rounded text-xs transition-colors"
+                                style={{ color: '#475569', backgroundColor: '#1e2533' }}
+                              >
+                                {isExpanded ? (
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                )}
+                              </button>
+                            ) : (
+                              <span className="w-5" />
+                            )}
+                            <span
+                              className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold"
+                              style={{ backgroundColor: 'rgba(244,123,32,0.12)', color: '#F59340', border: '1px solid rgba(244,123,32,0.2)' }}
+                            >
+                              v{v.version}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-5 py-4 text-xs" style={{ color: '#94a3b8' }}>{formatDate(v.created_at)}</td>
                         <td className="px-5 py-4">
@@ -868,6 +909,55 @@ export default function History({ projectId, project }) {
                           </div>
                         </td>
                       </motion.tr>
+
+                        {/* Client sub-rows */}
+                        {isExpanded && (grouped[v.version] || []).map(cv => (
+                          <motion.tr
+                            key={cv.version}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            style={{ borderColor: '#1e2533', backgroundColor: 'rgba(20,184,166,0.02)' }}
+                          >
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-2 pl-10">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold" style={{ backgroundColor: 'rgba(20,184,166,0.1)', color: '#14b8a6', border: '1px solid rgba(20,184,166,0.2)' }}>
+                                  v{cv.version.replace('client-', '')}
+                                </span>
+                                <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(20,184,166,0.08)', color: '#14b8a6' }}>Client Summary</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-xs" style={{ color: '#94a3b8' }}>{formatDate(cv.created_at)}</td>
+                            <td className="px-5 py-3">
+                              {cv.created_by_name ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: 'rgba(20,184,166,0.15)', color: '#14b8a6' }}>
+                                    {cv.created_by_name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-xs" style={{ color: '#94a3b8' }}>{cv.created_by_name}</span>
+                                </div>
+                              ) : <span className="text-xs" style={{ color: '#334155' }}>—</span>}
+                            </td>
+                            <td className="px-5 py-3">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: 'rgba(20,184,166,0.1)', border: '1px solid rgba(20,184,166,0.2)', color: '#14b8a6' }}>
+                                Client
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              <div className="inline-flex items-center gap-2">
+                                <motion.button onClick={() => handleDownload(cv.version, cv.version)} disabled={downloading === cv.version} title="Download PDF" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-60 transition-colors" style={{ color: '#64748b', border: '1px solid #1e2533' }} whileHover={{ backgroundColor: '#161b27', color: '#94a3b8', borderColor: '#2d3748' }} whileTap={{ scale: 0.95 }}>
+                                  {downloading === cv.version ? <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
+                                  PDF
+                                </motion.button>
+                                <motion.button onClick={() => handleDownloadDocx(cv.version, cv.version)} disabled={downloadingDocx === cv.version} title="Download DOCX" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-60 transition-colors" style={{ color: '#64748b', border: '1px solid #1e2533' }} whileHover={{ backgroundColor: '#161b27', color: '#94a3b8', borderColor: '#2d3748' }} whileTap={{ scale: 0.95 }}>
+                                  {downloadingDocx === cv.version ? <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>}
+                                  DOCX
+                                </motion.button>
+                              </div>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </React.Fragment>
                     )
                   })}
                 </AnimatePresence>
