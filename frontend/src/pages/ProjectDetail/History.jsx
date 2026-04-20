@@ -945,12 +945,45 @@ export default function History({ projectId, project }) {
                             </td>
                             <td className="px-5 py-3 text-right">
                               <div className="inline-flex items-center gap-2">
+                                {canUploadDrive && (
+                                  <>
+                                    {(driveStatuses[cv.version]?.shareUrl || cv.drive_share_url) ? (
+                                      <a
+                                        href={driveStatuses[cv.version]?.shareUrl || cv.drive_share_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                                        style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' }}
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                        Open in Google Docs
+                                      </a>
+                                    ) : driveStatuses[cv.version]?.uploading ? (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg opacity-60" style={{ color: '#94a3b8', border: '1px solid #1e2533' }}>
+                                        <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" />
+                                        Uploading...
+                                      </span>
+                                    ) : driveStatuses[cv.version]?.error ? (
+                                      <motion.button onClick={() => handleUploadToDrive(cv.version)} title="Retry upload" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                        Retry
+                                      </motion.button>
+                                    ) : (
+                                      <motion.button onClick={() => handleUploadToDrive(cv.version)} title="Upload to Google Drive" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }} whileHover={{ backgroundColor: 'rgba(59,130,246,0.2)', scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                        Upload to Drive
+                                      </motion.button>
+                                    )}
+                                  </>
+                                )}
                                 <motion.button onClick={() => handleDownload(cv.version, cv.version)} disabled={downloading === cv.version} title="Download PDF" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-60 transition-colors" style={{ color: '#64748b', border: '1px solid #1e2533' }} whileHover={{ backgroundColor: '#161b27', color: '#94a3b8', borderColor: '#2d3748' }} whileTap={{ scale: 0.95 }}>
                                   {downloading === cv.version ? <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
                                   PDF
                                 </motion.button>
                                 <motion.button onClick={() => handleDownloadDocx(cv.version, cv.version)} disabled={downloadingDocx === cv.version} title="Download DOCX" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-60 transition-colors" style={{ color: '#64748b', border: '1px solid #1e2533' }} whileHover={{ backgroundColor: '#161b27', color: '#94a3b8', borderColor: '#2d3748' }} whileTap={{ scale: 0.95 }}>
-                                  {downloadingDocx === cv.version ? <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>}
+                                  {downloadingDocx === cv.version ? <span className="w-3 h-3 rounded-full border border-current/30 border-t-current animate-spin" /> : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>}
                                   DOCX
                                 </motion.button>
                               </div>

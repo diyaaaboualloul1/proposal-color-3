@@ -792,6 +792,7 @@ export default function Chat({ projectId, project, onVersionCreated }) {
                 { cmd: '/undo',   desc: 'Rollback to previous version' },
                 { cmd: '/diff',   desc: 'What changed in last edit' },
                 { cmd: '/scope',  desc: 'Summarize project scope' },
+                { cmd: '/client', desc: 'Generate client summary from latest SRS' },
               ].filter(c => c.cmd.startsWith(input.toLowerCase())).map(({ cmd, desc }) => (
                 <button
                   key={cmd}

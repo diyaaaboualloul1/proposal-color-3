@@ -272,7 +272,8 @@ router.all('/client/generate', authMiddleware, async (req, res) => {
       [project.id, parentVersion]
     );
     let nextVersion = clientVersionsResult.rows.length === 0 ? '1.0' : (() => {
-      const [maj, min] = clientVersionsResult.rows[0].version.split('.').map(Number);
+      const stored = clientVersionsResult.rows[0].version.replace('client-', '');
+      const [maj, min] = stored.split('.').map(Number);
       return `${maj}.${min + 1}`;
     })();
     return res.json({ nextVersion, parentVersion });

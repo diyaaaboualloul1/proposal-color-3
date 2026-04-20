@@ -840,22 +840,7 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
                         >
                           v{cv.version.replace('client-', '')}
                         </button>
-                        <button
-                          onClick={() => handleClientDownload(cv.version)}
-                          className="text-xs px-2 py-1 rounded-lg transition-all"
-                          style={{ backgroundColor: 'transparent', border: '1px solid #334155', color: '#475569' }}
-                          title="Download PDF"
-                        >
-                          📄
-                        </button>
-                        <button
-                          onClick={() => handleClientDownloadDocx(cv.version)}
-                          className="text-xs px-2 py-1 rounded-lg transition-all"
-                          style={{ backgroundColor: 'transparent', border: '1px solid #334155', color: '#475569' }}
-                          title="Download DOCX"
-                        >
-                          📝
-                        </button>
+
                       </div>
                     );
                   })}
@@ -865,100 +850,20 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
           </motion.div>
 
 
-          {/* Active version label + Downloads */}
+          {/* Active version label */}
           <motion.div
             className="flex items-center gap-3 mb-3"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <div className="flex items-center gap-2 flex-1">
-              <span className="text-xs font-semibold px-3 py-1.5 rounded-xl" style={{
-                backgroundColor: selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.1)' : 'rgba(244,123,32,0.1)',
-                border: `1px solid ${selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.25)' : 'rgba(244,123,32,0.25)'}`,
-                color: selectedVersion?.startsWith('client-') ? '#14b8a6' : '#F47B20'
-              }}>
-                v{selectedVersion}{versions.find(v => v.version === selectedVersion)?.created_by_name ? ` — ${versions.find(v => v.version === selectedVersion).created_by_name}` : ''}
-              </span>
-            </div>
-
-            {/* Download MD — only for technical */}
-            {!selectedVersion?.startsWith('client-') && (
-              <motion.button
-                onClick={handleDownloadMd}
-                disabled={downloadingMd || !selectedVersion}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-                style={{ backgroundColor: 'transparent', border: '1px solid #334155', color: '#94a3b8' }}
-                whileHover={{ borderColor: '#64748b', color: '#f1f5f9', backgroundColor: 'rgba(255,255,255,0.04)' }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {downloadingMd ? <span className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current animate-spin" /> : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                )}
-                Download MD
-              </motion.button>
-            )}
-
-            {/* Download DOCX */}
-            <div className="relative group">
-              <motion.button
-                onClick={handleDownloadDocx}
-                disabled={downloadingDocx || !selectedVersion}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-                style={{ backgroundColor: 'transparent', border: '1px solid #334155', color: '#94a3b8' }}
-                whileHover={{ borderColor: '#64748b', color: '#f1f5f9', backgroundColor: 'rgba(255,255,255,0.04)' }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {downloadingDocx ? <span className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current animate-spin" /> : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                )}
-                Download DOCX
-              </motion.button>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 px-3 py-2 rounded-lg text-xs whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ backgroundColor: '#1e2533', border: '1px solid #334155', color: '#94a3b8' }}>
-                📌 After opening: Ctrl+A → F9 → "Update entire table" to fix page numbers &amp; table of contents
-              </div>
-            </div>
-
-            {/* Export JSON — only for technical */}
-            {!selectedVersion?.startsWith('client-') && (
-              <motion.button
-                onClick={handleExportJson}
-                disabled={exportingJson || !selectedVersion}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-                style={{ backgroundColor: 'transparent', border: '1px solid #334155', color: '#94a3b8' }}
-                whileHover={{ borderColor: '#64748b', color: '#f1f5f9', backgroundColor: 'rgba(255,255,255,0.04)' }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {exportingJson ? <span className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current animate-spin" /> : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                )}
-                JSON
-              </motion.button>
-            )}
-
-            {/* Download PDF */}
-            <motion.button
-              onClick={handleDownload}
-              disabled={downloading || !selectedVersion}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #F47B20, #D4680A)', boxShadow: '0 4px 12px rgba(244,123,32,0.25)' }}
-              whileHover={{ scale: 1.02, boxShadow: '0 6px 16px rgba(244,123,32,0.35)' }}
-              whileTap={{ scale: 0.97 }}
-            >
-              {downloading ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              )}
-              Download PDF
-            </motion.button>
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl" style={{
+              backgroundColor: selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.1)' : 'rgba(244,123,32,0.1)',
+              border: `1px solid ${selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.25)' : 'rgba(244,123,32,0.25)'}`,
+              color: selectedVersion?.startsWith('client-') ? '#14b8a6' : '#F47B20'
+            }}>
+              v{selectedVersion}{versions.find(v => v.version === selectedVersion)?.created_by_name ? ` — ${versions.find(v => v.version === selectedVersion).created_by_name}` : ''}
+            </span>
           </motion.div>
 
 
