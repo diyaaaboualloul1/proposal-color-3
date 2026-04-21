@@ -547,6 +547,7 @@ CLIENT DOCUMENT RULES (STRICT)
 4. Every feature bullet: short name + 1-2 sentence explanation
 5. Keep the document under 15 pages (aim for 8-12)
 6. Output must be a valid Markdown document starting with a heading
+7. The section "## What Happens When Someone Uses It — A Simple Walkthrough" is MANDATORY — you MUST place it between "## Who Uses This — And What They See" and "## What You Will Receive". Write 5-8 numbered steps describing the complete user flow from landing to goal completion. Do NOT skip, combine, or merge this section with any other section.
 
 ════════════════════════════════════════
 REQUIRED SECTIONS
@@ -583,6 +584,10 @@ Screens they access: [Screen 1], [Screen 2], [Screen 3]
 Screens they access: [Screen A], [Screen B]
 
 [... continue for all user roles ...]
+
+## What Happens When Someone Uses It — A Simple Walkthrough
+[Write a numbered list (1, 2, 3...) of the complete user journey from first landing on the site to completing their goal — keep it to 5-8 steps, plain language, no jargon. This section is for non-technical readers to understand the complete flow from start to finish.]
+
 
 ## What You Will Receive
 [Bullets — final deliverables: web app, mobile app, admin panel, documentation, etc.]
