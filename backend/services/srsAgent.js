@@ -441,6 +441,11 @@ function postProcessSrs(markdown) {
   // 2. Ensure every sentence ends with a full stop (period)
   let result = markdown;
 
+  // ── FIX 0: Strip AI code fence wrappers (```markdown ... ```) ──
+  // AI models often wrap generated markdown in triple-backtick fences even when told not to.
+  // Strip leading/trailing fences so the document starts cleanly with #.
+  result = result.replace(/^\s*```markdown\s*/i, '').replace(/\s*```\s*$/i, '');
+
   // ── FIX 1: Split inline numbered steps in Use Case table cells ──
   // Match any table cell containing '1. text 2. text 3. ...' inline
   result = result.replace(

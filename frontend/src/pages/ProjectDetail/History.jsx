@@ -495,7 +495,7 @@ export default function History({ projectId, project }) {
                       onBlur={e => { e.target.style.borderColor = diffV1 ? 'rgba(244,123,32,0.4)' : '#1e2533' }}
                     >
                       <option value="" style={{ background: '#111827' }}>Select…</option>
-                      {versions.map(v => <option key={v.version} value={v.version} style={{ background: '#111827' }}>v{v.version}</option>)}
+                      {versions.map((v, idx) => <option key={`${v.version}-${idx}`} value={v.version} style={{ background: '#111827' }}>v{v.version}</option>)}
                     </select>
                   </div>
 
@@ -523,7 +523,7 @@ export default function History({ projectId, project }) {
                       onBlur={e => { e.target.style.borderColor = diffV2 ? 'rgba(244,123,32,0.4)' : '#1e2533' }}
                     >
                       <option value="" style={{ background: '#111827' }}>Select…</option>
-                      {versions.map(v => <option key={v.version} value={v.version} style={{ background: '#111827' }}>v{v.version}</option>)}
+                      {versions.map((v, idx) => <option key={`${v.version}-${idx}`} value={v.version} style={{ background: '#111827' }}>v{v.version}</option>)}
                     </select>
                   </div>
 

@@ -69,9 +69,9 @@ router.post('/', authMiddleware, async (req, res) => {
   }
   
   try {
-    // Get current SRS version
+    // Get current SRS version (technical only — never edit a client summary)
     const srsResult = await pool.query(
-      'SELECT * FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
+      'SELECT * FROM srs_versions WHERE project_id = $1 AND type = \'technical\' ORDER BY created_at DESC LIMIT 1',
       [project.id]
     );
     
@@ -195,9 +195,9 @@ router.get('/stream', authMiddleware, async (req, res) => {
   if (!project) return;
 
   try {
-    // Get current SRS version
+    // Get current SRS version (technical only — never edit a client summary)
     const srsResult = await pool.query(
-      'SELECT * FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
+      'SELECT * FROM srs_versions WHERE project_id = $1 AND type = \'technical\' ORDER BY created_at DESC LIMIT 1',
       [project.id]
     );
 
@@ -337,27 +337,30 @@ router.get('/stream', authMiddleware, async (req, res) => {
             [project.id, parentVersion]
           );
           let nextClientVersion = clientVersionsResult.rows.length === 0 ? '1.0' : (() => {
-            const [maj, min] = clientVersionsResult.rows[0].version.split('.').map(Number);
+            // Handle both 'client-v1.0' and 'client-v1.0-of-v1.1' formats
+            const stored = clientVersionsResult.rows[0].version.replace('client-', '').replace(/^v/, '').split('-of-')[0];
+            const [maj, min] = stored.split('.').map(Number);
             return `${maj}.${min + 1}`;
           })();
+          const clientVersionName = `client-v${nextClientVersion}-of-${parentVersion}`;
           const srsMarkdown = await fs.readFile(latestResult.rows[0].file_path, 'utf8');
           const { buildClientPrompt, callSrsAgentWithRetry } = require('../services/srsAgent');
           const clientPrompt = buildClientPrompt(srsMarkdown, project.name, parentVersion);
           const clientMarkdown = await callSrsAgentWithRetry(clientPrompt, 8000);
           const projectPath = path.join(__dirname, '../../projects', String(project.id));
           await fs.mkdir(projectPath, { recursive: true });
-          const mdPath = path.join(projectPath, `client-v${nextClientVersion}.md`);
+          const mdPath = path.join(projectPath, `${clientVersionName}.md`);
           await fs.writeFile(mdPath, clientMarkdown);
           const pdfPath = mdPath.replace('.md', '.pdf');
           const { generatePdfFromMarkdown } = require('../services/pdfGenerator');
-          await generatePdfFromMarkdown(clientMarkdown, pdfPath, null, `client-v${nextClientVersion}`, new Date().toISOString().split('T')[0], 'Client Summary');
+          await generatePdfFromMarkdown(clientMarkdown, pdfPath, null, clientVersionName, new Date().toISOString().split('T')[0], 'Client Summary');
           await pool.query(
             `INSERT INTO srs_versions (project_id, version, file_path, pdf_path, type, parent_version, created_by) VALUES ($1, $2, $3, $4, 'client', $5, $6)`,
-            [project.id, `client-v${nextClientVersion}`, mdPath, pdfPath, parentVersion, req.user.id]
+            [project.id, clientVersionName, mdPath, pdfPath, parentVersion, req.user.id]
           );
           await pool.query(
             'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
-            [project.id, 'assistant', `✅ Client Summary v${nextClientVersion} generated from v${parentVersion}! Check the History tab to download it.`, `client-v${nextClientVersion}`, 'success', userMessage.id]
+            [project.id, 'assistant', `✅ Client Summary ${clientVersionName} generated from v${parentVersion}! Check the History tab to download it.`, clientVersionName, 'success', userMessage.id]
           );
         } catch (err) {
           console.error('[Chat] /client error:', err);
@@ -509,9 +512,9 @@ router.get('/stream', authMiddleware, async (req, res) => {
           );
         }
 
-        // Calculate next version — fetch LATEST to avoid race conditions
+        // Calculate next version — fetch LATEST TECHNICAL to avoid NaN from client-x.y version strings
         const latestVersionResult = await pool.query(
-          'SELECT * FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1',
+          'SELECT * FROM srs_versions WHERE project_id = $1 AND type = \'technical\' ORDER BY created_at DESC LIMIT 1',
           [project.id]
         );
         const latestVersionRow = latestVersionResult.rows[0];

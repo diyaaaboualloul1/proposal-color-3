@@ -53,7 +53,9 @@ export default function ShareView() {
           setSrsContent(json.srs.content)
         }
         if (json.versions && json.versions.length > 0) {
-          setSelectedVersion(json.versions[0].version)
+          // Prefer the version from the share token (srs.version), otherwise pick the first (most recent)
+          const tokenVersion = json.srs?.version || json.versions[0].version;
+          setSelectedVersion(tokenVersion);
         }
       } catch (err) {
         setError(err.message || 'Failed to load shared SRS.')

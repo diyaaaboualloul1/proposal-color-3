@@ -154,7 +154,7 @@ async function ensureVersionFolder(projectFolderId, versionLabel) {
 async function uploadFile(folderId, fileName, fileBuffer, mimeType) {
   const { drive } = await getDriveClient();
 
-  const { Readable } = require('stream');
+  const stream = new Readable();
   stream.push(fileBuffer);
   stream.push(null);
 
@@ -252,28 +252,75 @@ async function createGoogleDoc(folderId, fileName, textContent) {
 }
 
 /**
- * Main function: create a Google Doc from the SRS DOCX content
- * Only creates the Google Doc — no PDF/MD uploads
+ * Ensure the client-summaries subfolder exists inside a version folder.
+ * Only created when a client summary is actually being uploaded.
+ */
+async function ensureClientSummariesFolder(versionFolderId) {
+  const { drive } = await getDriveClient();
+
+  const searchRes = await drive.files.list({
+    q: `name = 'client-summaries' and '${versionFolderId}' in parents and trashed = false`,
+    fields: 'files(id, name)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+
+  if (searchRes.data.files.length > 0) {
+    return searchRes.data.files[0].id;
+  }
+
+  const folderMeta = {
+    name: 'client-summaries',
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: [versionFolderId],
+  };
+
+  const created = await drive.files.create({
+    resource: folderMeta,
+    fields: 'id',
+    supportsAllDrives: true,
+  });
+
+  return created.data.id;
+}
+
+/**
+ * Main function: create a Google Doc from the SRS DOCX content.
+ * For technical SRS: uploads to ProjectName/v{version}/ folder.
+ * For client summaries: uploads to ProjectName/v{parentVersion}/client-summaries/ folder.
+ *
  * @param {string} projectName
- * @param {string} versionLabel
- * @param {object} files - { pdf: Buffer, docx: Buffer, md: Buffer }
+ * @param {object} opts - { type: 'technical'|'client', version, parentVersion, files }
  * @returns {object} { folderId, docxFileId, shareUrl }
  */
-async function uploadVersionFiles(projectName, versionLabel, files) {
+async function uploadVersionFiles(projectName, { type, version, parentVersion, files }) {
+  const { drive } = await getDriveClient();
+  const safeProjectSlug = projectName.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, '-').substring(0, 40).replace(/-$/, '');
+
   // Ensure project folder
   const projectFolderId = await ensureProjectFolder(projectName);
 
-  // Ensure version folder
-  const versionFolderId = await ensureVersionFolder(projectFolderId, versionLabel);
+  if (type === 'client' && parentVersion) {
+    // Client summary → upload to parent version folder / client-summaries subfolder
+    // Create parent version folder if it doesn't exist (e.g. technical SRS never uploaded)
+    const versionFolderId = await ensureVersionFolder(projectFolderId, `v${parentVersion}`);
+    const clientSummariesFolderId = await ensureClientSummariesFolder(versionFolderId);
 
-  // Build filename
-  const safeProjectSlug = projectName.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, '-').substring(0, 40).replace(/-$/, '');
-  const docxName = `${safeProjectSlug}-v${versionLabel}`;
+    const docxName = `${safeProjectSlug}-${version}`; // e.g. "BarberCo-client-v1.0-of-1.0"
+    const docxResult = await uploadAsGoogleDoc(clientSummariesFolderId, docxName, files.docx);
+    await setSharePermission(docxResult.fileId);
 
-  // Upload DOCX directly — Drive API converts it to Google Doc on Google's servers
+    return {
+      driveFolderId: clientSummariesFolderId,
+      driveFileIdDocx: docxResult.fileId,
+      shareUrl: docxResult.webViewLink,
+    };
+  }
+
+  // Technical SRS → upload to ProjectName/v{version}/
+  const versionFolderId = await ensureVersionFolder(projectFolderId, `v${version}`);
+  const docxName = `${safeProjectSlug}-v${version}`;
   const docxResult = await uploadAsGoogleDoc(versionFolderId, docxName, files.docx);
-
-  // Set share permission so anyone with link can comment
   await setSharePermission(docxResult.fileId);
 
   return {
@@ -324,6 +371,7 @@ module.exports = {
   saveSetting,
   ensureProjectFolder,
   ensureVersionFolder,
+  ensureClientSummariesFolder,
   uploadFile,
   setSharePermission,
   uploadVersionFiles,

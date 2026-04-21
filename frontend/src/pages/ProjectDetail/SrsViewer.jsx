@@ -33,7 +33,7 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
       const parent = v.parent_version || 'unknown';
       if (!acc[parent]) acc[parent] = [];
       acc[parent].push(v);
-    } else {
+    } else if (v.type === 'technical') {
       if (!acc['technical']) acc['technical'] = [];
       acc['technical'].push(v);
     }
@@ -99,7 +99,9 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
 
   const technicalVersions = versions.filter(v => v.type !== 'client');
   const [srsContent, setSrsContent] = useState('')
-  const [selectedVersion, setSelectedVersion] = useState(null)
+  const [selectedSrsId, setSelectedSrsId] = useState(null)
+  // Helper: get version string for API calls from selectedSrsId
+  const selectedVersion = selectedSrsId ? (versions.find(v => v.id === selectedSrsId)?.version || null) : null
   const [loading, setLoading] = useState(true)
   const [loadingContent, setLoadingContent] = useState(false)
   const [error, setError] = useState('')
@@ -128,8 +130,8 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
       const res = await apiClient.get(`/projects/${projectId}/srs`)
       const list = res.data.versions || res.data || []
       setVersions(list)
-      if (list.length > 0 && !selectedVersion) {
-        setSelectedVersion(list[0].version)
+      if (list.length > 0 && !selectedSrsId) {
+        setSelectedSrsId(list[0].id)
       }
     } catch {
       // Silently fail — the next 3-second poll will succeed if this was transient.
@@ -138,23 +140,25 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, selectedSrsId])
 
   const fetchComments = useCallback(async () => {
-    if (!selectedVersion) return
+    if (!selectedSrsId) return
+    const ver = versions.find(v => v.id === selectedSrsId)?.version
+    if (!ver) return
     try {
-      const res = await apiClient.get(`/projects/${projectId}/comments?version=${selectedVersion}`)
+      const res = await apiClient.get(`/projects/${projectId}/comments?version=${ver}`)
       setComments(res.data.comments || res.data || [])
     } catch {
       setComments([])
     }
-  }, [projectId, selectedVersion])
+  }, [projectId, selectedSrsId, versions])
 
   useEffect(() => {
-    if (showComments && selectedVersion) {
+    if (showComments && selectedSrsId) {
       fetchComments()
     }
-  }, [showComments, fetchComments, selectedVersion])
+  }, [showComments, fetchComments, selectedSrsId])
 
   const submitComment = async () => {
     if (!newComment.trim()) return
@@ -162,7 +166,7 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
     try {
       await apiClient.post(`/projects/${projectId}/comments`, {
         content: newComment,
-        srs_version: selectedVersion,
+        srs_version: versions.find(v => v.id === selectedSrsId)?.version,
         section_ref: newCommentSection || null
       })
       setNewComment('')
@@ -213,7 +217,7 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
     if (selectedVersion) {
       fetchVersionContent(selectedVersion)
     }
-  }, [selectedVersion, fetchVersionContent])
+  }, [selectedSrsId, fetchVersionContent])
 
   useEffect(() => {
     if (generationStatus !== 'generating') return
@@ -802,13 +806,13 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
                 <span className="text-xs font-semibold mr-1" style={{ color: '#475569' }}>Technical</span>
                 {groupedVersions['technical'].map(v => (
                   <button
-                    key={v.version}
-                    onClick={() => setSelectedVersion(v.version)}
+                    key={v.id}
+                    onClick={() => setSelectedSrsId(v.id)}
                     className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
                     style={{
-                      backgroundColor: selectedVersion === v.version ? 'rgba(244,123,32,0.15)' : 'transparent',
-                      border: `1px solid ${selectedVersion === v.version ? 'rgba(244,123,32,0.4)' : '#334155'}`,
-                      color: selectedVersion === v.version ? '#F47B20' : '#475569'
+                      backgroundColor: v.id === selectedSrsId ? 'rgba(244,123,32,0.15)' : 'transparent',
+                      border: `1px solid ${v.id === selectedSrsId ? 'rgba(244,123,32,0.4)' : '#334155'}`,
+                      color: v.id === selectedSrsId ? '#F47B20' : '#475569'
                     }}
                   >
                     v{v.version}
@@ -826,11 +830,11 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-semibold mr-1" style={{ color: '#475569' }}>Client</span>
                   {clientVers.map(cv => {
-                    const isSelected = selectedVersion === cv.version;
+                    const isSelected = cv.id === selectedSrsId;
                     return (
-                      <div key={cv.version} className="flex items-center gap-1">
+                      <div key={cv.id} className="flex items-center gap-1">
                         <button
-                          onClick={() => setSelectedVersion(cv.version)}
+                          onClick={() => setSelectedSrsId(cv.id)}
                           className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
                           style={{
                             backgroundColor: isSelected ? 'rgba(20,184,166,0.12)' : 'transparent',
@@ -838,9 +842,8 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
                             color: isSelected ? '#14b8a6' : '#475569'
                           }}
                         >
-                          v{cv.version.replace('client-', '')}
+                          {cv.version.includes('-of-') ? `v${cv.version.split('-of-')[0].split('-v')[1]} (of v${cv.version.split('-of-')[1]})` : `v${cv.version.replace('client-', '')}`}
                         </button>
-
                       </div>
                     );
                   })}
@@ -862,7 +865,20 @@ export default function SrsViewer({ projectId, project, onProjectUpdate }) {
               border: `1px solid ${selectedVersion?.startsWith('client-') ? 'rgba(20,184,166,0.25)' : 'rgba(244,123,32,0.25)'}`,
               color: selectedVersion?.startsWith('client-') ? '#14b8a6' : '#F47B20'
             }}>
-              v{selectedVersion}{versions.find(v => v.version === selectedVersion)?.created_by_name ? ` — ${versions.find(v => v.version === selectedVersion).created_by_name}` : ''}
+              {(selectedVersion ? (() => {
+                const sel = versions.find(v => v.id === selectedSrsId);
+                if (!sel) return selectedVersion;
+                if (sel.type === 'client') {
+                  const num = sel.version.includes('-of-') 
+                    ? sel.version.split('-of-')[0].split('-v')[1]
+                    : sel.version.replace('client-', '');
+                  const par = sel.version.includes('-of-') 
+                    ? sel.version.split('-of-')[1]
+                    : sel.parent_version;
+                  return `v${num} (of v${par || '?'})${sel.created_by_name ? ` — ${sel.created_by_name}` : ''}`;
+                }
+                return `v${sel.version}${sel.created_by_name ? ` — ${sel.created_by_name}` : ''}`;
+              })() : '')}
             </span>
           </motion.div>
 

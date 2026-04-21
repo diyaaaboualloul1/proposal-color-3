@@ -318,12 +318,14 @@ router.all('/client/generate', authMiddleware, async (req, res) => {
     if (!lastClientVersion) {
       nextClientVersion = '1.0';
     } else {
-      const stored = lastClientVersion.replace('client-', '').replace(/^v/, '');
+      // Handle both 'client-v1.0' and 'client-v1.0-of-v1.1' formats
+      const stored = lastClientVersion.replace('client-', '').replace(/^v/, '').split('-of-')[0];
       const [major, minor] = stored.split('.').map(Number);
       nextClientVersion = `${major}.${minor + 1}`;
     }
+    const clientVersionName = `client-v${nextClientVersion}-of-${parentVersionNumber}`;
 
-    send({ type: 'progress', message: `Generating Client Summary v${nextClientVersion} from v${parentVersionNumber}...` });
+    send({ type: 'progress', message: `Generating Client Summary v${nextClientVersion} (of v${parentVersionNumber})...` });
 
     // 4. Call AI with client prompt
     const { buildClientPrompt, callSrsAgentStream } = require('../services/srsAgent');
@@ -338,22 +340,22 @@ router.all('/client/generate', authMiddleware, async (req, res) => {
     // 5. Save MD file
     const projectPath = path.join(__dirname, '../../projects', String(projectId));
     await fs.mkdir(projectPath, { recursive: true });
-    const mdPath = path.join(projectPath, `client-v${nextClientVersion}.md`);
+    const mdPath = path.join(projectPath, `${clientVersionName}.md`);
     await fs.writeFile(mdPath, clientMarkdown);
     send({ type: 'progress', message: 'Generating PDF...' });
 
     // 6. Generate PDF
     const pdfPath = mdPath.replace('.md', '.pdf');
-    await generatePdfFromMarkdown(clientMarkdown, pdfPath, null, `client-v${nextClientVersion}`, new Date().toISOString().split('T')[0], 'Client Summary');
+    await generatePdfFromMarkdown(clientMarkdown, pdfPath, null, clientVersionName, new Date().toISOString().split('T')[0], 'Client Summary');
 
     // 7. Save to DB
     await pool.query(
       `INSERT INTO srs_versions (project_id, version, file_path, pdf_path, type, parent_version, created_by)
        VALUES ($1, $2, $3, $4, 'client', $5, $6)`,
-      [projectId, `client-v${nextClientVersion}`, mdPath, pdfPath, parentVersionNumber, req.user.id]
+      [projectId, clientVersionName, mdPath, pdfPath, parentVersionNumber, req.user.id]
     );
 
-    send({ type: 'done', version: `client-v${nextClientVersion}`, parentVersion: parentVersionNumber });
+    send({ type: 'done', version: clientVersionName, parentVersion: parentVersionNumber });
     res.end();
   } catch (err) {
     console.error('Client generate error:', err);
@@ -1489,10 +1491,12 @@ router.post('/:version/upload-to-drive', authMiddleware, async (req, res) => {
     const mdBuffer = await fs.readFile(srsVersion.file_path);
 
     // Upload to Google Drive
-    const result = await uploadVersionFiles(project.name, version, {
-      pdf: pdfBuffer,
-      docx: docxBuffer,
-      md: mdBuffer,
+    // For technical: ProjectName/v{version}/; For client: ProjectName/v{parentVersion}/client-summaries/
+    const result = await uploadVersionFiles(project.name, {
+      type: srsVersion.type,
+      version: srsVersion.version,
+      parentVersion: srsVersion.parent_version,
+      files: { docx: docxBuffer, pdf: pdfBuffer, md: mdBuffer },
     });
 
     // Update version record with Drive info

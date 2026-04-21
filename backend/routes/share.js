@@ -114,6 +114,52 @@ router.get('/:token', async (req, res) => {
   }
 });
 
+// GET /api/share/:token/srs/:version — public markdown content for a specific version
+router.get('/:token/srs/:version', async (req, res) => {
+  const { token, version } = req.params;
+
+  try {
+    const tokenResult = await pool.query(
+      'SELECT * FROM share_tokens WHERE token = $1',
+      [token]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Link not found or expired' });
+    }
+
+    const shareToken = tokenResult.rows[0];
+    if (shareToken.expires_at && new Date(shareToken.expires_at) < new Date()) {
+      return res.status(404).json({ error: 'Link not found or expired' });
+    }
+    if (shareToken.status === 'revoked') {
+      return res.status(404).json({ error: 'Link has been revoked' });
+    }
+
+    const projectId = shareToken.project_id;
+
+    // Determine type from token or infer from version string
+    const srsType = shareToken.srs_type || (version.startsWith('client-') ? 'client' : 'technical');
+
+    const srsResult = await pool.query(
+      'SELECT * FROM srs_versions WHERE project_id = $1 AND version = $2 AND type = $3',
+      [projectId, version, srsType]
+    );
+
+    if (srsResult.rows.length === 0) {
+      return res.status(404).json({ error: 'SRS version not found' });
+    }
+
+    const srsRow = srsResult.rows[0];
+    const content = await fs.readFile(srsRow.file_path, 'utf8');
+
+    res.json({ content, version: srsRow.version, type: srsRow.type });
+  } catch (err) {
+    console.error('Public SRS version error:', err);
+    res.status(500).json({ error: 'Failed to load SRS version' });
+  }
+});
+
 // GET /api/share/:token/srs/:version/download — public PDF download
 router.get('/:token/srs/:version/download', async (req, res) => {
   const { token, version } = req.params;

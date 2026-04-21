@@ -23,7 +23,6 @@ export default function Overview({ project, onUpdate }) {
     status: project.status || 'active',
   })
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
 
   // Share state — versioned links
   const [shareLinks, setShareLinks] = useState([])
@@ -31,10 +30,11 @@ export default function Overview({ project, onUpdate }) {
   const [loadingLinks, setLoadingLinks] = useState(true)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [linkType, setLinkType] = useState('technical')
-  const [linkVersion, setLinkVersion] = useState('')
+  const [linkVersion, setLinkVersion] = useState('')  // version string for API
   const [creatingLink, setCreatingLink] = useState(false)
   const [newLinkUrl, setNewLinkUrl] = useState('')
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchShareData = async () => {
@@ -45,8 +45,8 @@ export default function Overview({ project, onUpdate }) {
         ])
         setShareLinks(linksRes.data.links || [])
         setShareVersions({
-          technical: (versionsRes.data.versions || []).filter(v => v.type === 'technical').map(v => v.version),
-          client: (versionsRes.data.versions || []).filter(v => v.type === 'client').map(v => v.version)
+          technical: (versionsRes.data.versions || []).filter(v => v.type === 'technical').map(v => ({ version: v.version, id: v.id })),
+          client: (versionsRes.data.versions || []).filter(v => v.type === 'client').map(v => ({ version: v.version, parentVersion: v.parent_version, id: v.id, created_by_name: v.created_by_name }))
         })
       } catch {
         setShareLinks([])
@@ -61,14 +61,20 @@ export default function Overview({ project, onUpdate }) {
     if (!linkVersion) return
     setCreatingLink(true)
     try {
+      // Look up the full version object from the version list to get the correct version string
+      const versionList = linkType === 'client' ? shareVersions.client : shareVersions.technical;
+      const selectedItem = versionList.find(v => v.id === linkVersion || v.version === linkVersion);
+      const realVersion = selectedItem ? selectedItem.version : linkVersion;
       const res = await apiClient.post(`/projects/${project.id}/share-links`, {
         srs_type: linkType,
-        srs_version: linkVersion
+        srs_version: realVersion
       })
       setNewLinkUrl(res.data.shareUrl)
       const linksRes = await apiClient.get(`/projects/${project.id}/share-links`)
       setShareLinks(linksRes.data.links || [])
-    } catch {
+    } catch (err) {
+      console.error('Share link error:', err?.response?.data || err?.message || err);
+      setError(err?.response?.data?.error || 'Failed to generate link');
     } finally {
       setCreatingLink(false)
     }
@@ -420,7 +426,13 @@ export default function Overview({ project, onUpdate }) {
                   </span>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-xs font-mono" style={{ color: '#94a3b8' }}>{link.srs_version}</span>
+                  <span className="text-xs font-mono" style={{ color: '#94a3b8' }}>
+                    {link.srs_type === 'client' && link.srs_version
+                      ? link.srs_version.includes('-of-')
+                          ? `v${link.srs_version.split('-of-')[0].split('-v')[1]} (of v${link.srs_version.split('-of-')[1]})`
+                          : `v${link.srs_version.replace('client-', '')} (of v${link.parent_version})`
+                      : `v${link.srs_version}`}
+                  </span>
                 </div>
                 <div className="col-span-4 flex items-center gap-1.5">
                   <input
@@ -499,7 +511,7 @@ export default function Overview({ project, onUpdate }) {
                     <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#475569' }}>1. Choose Type</label>
                     <div className="grid grid-cols-2 gap-2">
                       <motion.button
-                        onClick={() => { setLinkType('technical'); setLinkVersion(shareVersions.technical[0] || '') }}
+                        onClick={() => { setLinkType('technical'); setLinkVersion(shareVersions.technical[0]?.version || '') }}
                         className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-sm font-medium"
                         style={{
                           backgroundColor: linkType === 'technical' ? 'rgba(244,123,32,0.12)' : '#161b27',
@@ -514,7 +526,7 @@ export default function Overview({ project, onUpdate }) {
                         Detailed SRS
                       </motion.button>
                       <motion.button
-                        onClick={() => { setLinkType('client'); setLinkVersion(shareVersions.client[0] || '') }}
+                        onClick={() => { setLinkType('client'); setLinkVersion(shareVersions.client[0]?.version || '') }}
                         className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-sm font-medium"
                         style={{
                           backgroundColor: linkType === 'client' ? 'rgba(20,184,166,0.12)' : '#161b27',
@@ -538,9 +550,16 @@ export default function Overview({ project, onUpdate }) {
                       onChange={e => setLinkVersion(e.target.value)}
                       style={{ width: '100%', padding: '8px 12px', backgroundColor: '#161b27', border: '1px solid #1e2533', borderRadius: '10px', color: '#f1f5f9', fontSize: '0.875rem', outline: 'none' }}
                     >
-                      {(linkType === 'technical' ? shareVersions.technical : shareVersions.client).map(v => (
-                        <option key={v} value={v} style={{ backgroundColor: '#161b27' }}>{v}</option>
-                      ))}
+                      {(linkType === 'technical' ? shareVersions.technical : shareVersions.client).map((v, idx) => {
+                        const isClient = linkType === 'client';
+                        const val = v.version; // always use the actual version string for the API
+                        const label = isClient
+                          ? (v.version.includes('-of-') 
+                              ? `v${v.version.split('-of-')[0].split('-v')[1]} (of v${v.version.split('-of-')[1]})${v.created_by_name ? ` — ${v.created_by_name}` : ''}`
+                              : `v${v.version.replace('client-', '')} (of v${v.parentVersion})${v.created_by_name ? ` — ${v.created_by_name}` : ''}`)
+                          : `v${v.version}`;
+                        return <option key={`${val}-${idx}`} value={val} style={{ backgroundColor: '#161b27' }}>{label}</option>;
+                      })}
                     </select>
                     {(linkType === 'technical' ? shareVersions.technical : shareVersions.client).length === 0 && (
                       <p className="text-xs" style={{ color: '#ef4444' }}>No {linkType === 'client' ? 'client summaries' : 'technical versions'} available</p>
@@ -561,7 +580,7 @@ export default function Overview({ project, onUpdate }) {
               ) : (
                 <>
                   <p className="text-xs" style={{ color: '#22c55e' }}>
-                    ✅ Share link created for <span className="font-mono font-semibold">{linkType === 'client' ? 'Client Summary' : 'Detailed SRS'} {linkVersion}</span>
+                    ✅ Share link created for <span className="font-mono font-semibold">{linkType === 'client' ? 'Client Summary' : 'Detailed SRS'} {(linkType === 'client' ? (shareVersions.client.find(v => v.id === linkVersion)?.version || linkVersion) : linkVersion)}</span>
                   </p>
                   <div className="flex items-center gap-2">
                     <input

@@ -575,7 +575,7 @@ router.get('/:id/share-links', async (req, res) => {
     }
 
     const linksResult = await pool.query(
-      `SELECT id, token, srs_type, srs_version, status, expires_at, created_at,
+      `SELECT id, token, srs_type, srs_version, parent_version, status, expires_at, created_at,
               (SELECT email FROM users WHERE id = share_tokens.created_by) as created_by_email
        FROM share_tokens
        WHERE project_id = $1
@@ -612,7 +612,7 @@ router.post('/:id/share-links', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Verify version exists
+    // Verify version exists and get parent_version for client types
     const versionResult = await pool.query(
       `SELECT * FROM srs_versions WHERE project_id = $1 AND version = $2 AND type = $3`,
       [projectId, srs_version, srs_type]
@@ -620,12 +620,13 @@ router.post('/:id/share-links', async (req, res) => {
     if (versionResult.rows.length === 0) {
       return res.status(404).json({ error: 'SRS version not found' });
     }
+    const parentVersion = srs_type === 'client' ? (versionResult.rows[0].parent_version || null) : null;
 
     const token = crypto.randomBytes(32).toString('hex');
     await pool.query(
-      `INSERT INTO share_tokens (project_id, token, created_by, srs_type, srs_version, status)
-       VALUES ($1, $2, $3, $4, $5, 'active')`,
-      [projectId, token, req.user.id, srs_type, srs_version]
+      `INSERT INTO share_tokens (project_id, token, created_by, srs_type, srs_version, parent_version, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active')`,
+      [projectId, token, req.user.id, srs_type, srs_version, parentVersion]
     );
 
     const shareUrl = `${SHARE_BASE_URL}/share/${token}`;
