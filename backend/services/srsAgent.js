@@ -572,11 +572,9 @@ REQUIRED SECTIONS
 [Bullets — what is explicitly OUT OF SCOPE. Be specific and helpful.]
 
 ## Key Features
-[Name of feature]
-: Short 1-2 sentence explanation of this feature and how it helps the user.
-
-[Name of feature]
-: Short 1-2 sentence explanation.
+[Use bullet list format. Each bullet starts with a bold feature name followed by a colon, all on one line:]
+- **Feature Name**: Short 1-2 sentence explanation of this feature and how it helps the user.
+- **Feature Name**: Short 1-2 sentence explanation.
 
 [... continue for all major features from the SRS ...]
 
