@@ -130,14 +130,14 @@ router.post('/', authMiddleware, async (req, res) => {
     const projectPath = await ensureProjectDir(project.id);
     const mdFilename = `srs-v${newVersion}.md`;
     const mdPath = path.join(projectPath, mdFilename);
-    await fs.writeFile(mdPath, updatedMarkdown, 'utf8');
+    await fs.writeFile(mdPath, processedMarkdown, 'utf8');
     
     // Generate PDF
     let pdfPath = null;
     try {
       const pdfFilename = `srs-v${newVersion}.pdf`;
       pdfPath = path.join(projectPath, pdfFilename);
-      await generatePdfFromMarkdown(updatedMarkdown, pdfPath, null, newVersion, new Date().toISOString().split('T')[0], 'Draft');
+      await generatePdfFromMarkdown(processedMarkdown, pdfPath, null, newVersion, new Date().toISOString().split('T')[0], 'Draft');
     } catch (pdfErr) {
       console.error('PDF generation failed:', pdfErr.message);
       pdfPath = null;
@@ -437,9 +437,9 @@ router.get('/stream', authMiddleware, async (req, res) => {
 
         // UNDO command
         if (trimmed.startsWith('UNDO:')) {
-          // Find previous version and restore it
+          // Find previous TECHNICAL version and restore it (never touch client summaries)
           const versionsResult = await pool.query(
-            'SELECT * FROM srs_versions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 2',
+            "SELECT * FROM srs_versions WHERE project_id = $1 AND type = 'technical' ORDER BY created_at DESC LIMIT 2",
             [project.id]
           );
           if (versionsResult.rows.length < 2) {
@@ -463,54 +463,20 @@ router.get('/stream', authMiddleware, async (req, res) => {
           return;
         }
 
-        // GENERATE: AI is executing the edit
-        let updatedMarkdown = trimmed.startsWith('GENERATE:')
-          ? trimmed.replace(/^GENERATE:\s*/i, '').trim()
-          : trimmed;
-
-        updatedMarkdown = postProcessSrs(updatedMarkdown);
-
-        // If response is short but looks like a valid conversational reply (not a full SRS), save it as info
-        if (updatedMarkdown.length < 500 || !updatedMarkdown.includes('#')) {
-          // Check if it's a meaningful conversational reply (not just garbage)
-          const isGarbage = updatedMarkdown.length < 10 || /^[^a-zA-Z\u0600-\u06FF]{5,}$/.test(updatedMarkdown.trim());
-          console.log(`[Chat] Short reply (not garbage, not diff) for project ${project.id}: ${updatedMarkdown.substring(0, 60)}`);
-          if (isGarbage) {
-            // Garbage — save as error
-            console.error(`[Chat] Invalid AI response for project ${project.id}: length=${updatedMarkdown.length}`);
-            await pool.query(
-              'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
-              [project.id, 'assistant', '⚠️ Could not process your request — the AI response was invalid. Please try again with more detail.', currentSrsVersion.version, 'error', userMessage.id]
-            );
-            return;
-          }
-
-          // SAFETY CHECK: if AI returned DIFF SUMMARY after a user confirmation,
-          // skip saving it as info and trigger background generation instead
-          const trimmedLower = updatedMarkdown.toLowerCase();
-          const userMsgLower = (userMessage?.content || '').toLowerCase().trim();
-          const looksLikeDiffSummary = trimmedLower.includes('diff summary') || trimmedLower.includes('**diff');
-          const userWasConfirming = /^yes|yea|yep|ok|okay|confirm|proceed|go ahead|do it|start|make|add|insert|change|update|remove|delete/i.test(userMsgLower);
-
-          if (looksLikeDiffSummary && userWasConfirming) {
-            // User confirmed but AI gave diff summary instead of GENERATE: — force generation
-            console.log(`[Chat] AI returned diff summary after confirmation for project ${project.id} — forcing background generation`);
-            await pool.query(
-              'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
-              [project.id, 'assistant', updatedMarkdown.trim(), currentSrsVersion.version, 'info', userMessage.id]
-            );
-            const { enqueue } = require('../services/generationQueue');
-            enqueue({ projectId: project.id, userId: user.id, userMessageId: userMessage.id, action: 'edit', editMessageId: userMessage.id });
-            return;
-          }
-
-          // Valid short reply (cancellation, question, info) — save as-is
-          console.log(`[Chat] Short conversational reply for project ${project.id}: ${updatedMarkdown.substring(0, 80)}`);
+        // Only save as a new SRS version when AI explicitly uses GENERATE: prefix.
+        // Everything else — questions, explanations, conversational replies —
+        // is saved as a chat message and NEVER creates a new SRS version.
+        if (!trimmed.startsWith('GENERATE:')) {
+          console.log(`[Chat] No GENERATE: prefix — saving as chat message for project ${project.id}`);
           await pool.query(
             'INSERT INTO chat_messages (project_id, role, content, srs_version, msg_type, reply_to) VALUES ($1, $2, $3, $4, $5, $6)',
-            [project.id, 'assistant', updatedMarkdown.trim(), currentSrsVersion.version, 'info', userMessage.id]
+            [project.id, 'assistant', trimmed, currentSrsVersion.version, 'info', userMessage.id]
           );
+          return;
         }
+
+        const updatedMarkdown = trimmed.replace(/^GENERATE:\s*/i, '').trim();
+        const processedMarkdown = postProcessSrs(updatedMarkdown);
 
         // Calculate next version — fetch LATEST TECHNICAL to avoid NaN from client-x.y version strings
         const latestVersionResult = await pool.query(
@@ -528,14 +494,14 @@ router.get('/stream', authMiddleware, async (req, res) => {
         const projectPath = await ensureProjectDir(project.id);
         const mdFilename = `srs-v${newVersion}.md`;
         const mdPath = path.join(projectPath, mdFilename);
-        await fs.writeFile(mdPath, updatedMarkdown, 'utf8');
+        await fs.writeFile(mdPath, processedMarkdown, 'utf8');
 
         // Generate PDF
         let pdfPath = null;
         try {
           const pdfFilename = `srs-v${newVersion}.pdf`;
           pdfPath = path.join(projectPath, pdfFilename);
-          await generatePdfFromMarkdown(updatedMarkdown, pdfPath, null, newVersion, new Date().toISOString().split('T')[0], 'Draft');
+          await generatePdfFromMarkdown(processedMarkdown, pdfPath, null, newVersion, new Date().toISOString().split('T')[0], 'Draft');
         } catch (pdfErr) {
           console.error('PDF generation failed during background chat:', pdfErr.message);
         }

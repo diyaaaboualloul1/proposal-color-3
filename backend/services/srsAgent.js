@@ -265,6 +265,9 @@ STEP 2 — CLARIFY (only if needed):
     2. [question two]
     3. [question three]
   - Do NOT generate SRS when clarifying
+  - MANDATORY: Every message that contains a question MUST use the CLARIFY: prefix.
+    Any response without CLARIFY: or GENERATE: prefix will be treated as
+    a chat message and WILL NOT be saved as an SRS version.
 
 STEP 3 — SCOPE CHECK + CONFIRM PLAN:
   - Once you have enough info (or request was clear), show a plan:

@@ -830,7 +830,7 @@ export default function Chat({ projectId, project, onVersionCreated }) {
                 ? processingType === 'command' ? 'Running command...'
                   : processingType === 'confirm' ? 'Generating version...'
                   : 'Waiting for AI response...'
-                : 'Ask AI to edit SRS... or type / for commands'}
+                : 'Ask a question or make an edit — check Tips 💡 first'}
               rows={2}
               className="w-full px-4 py-3 text-sm outline-none resize-none disabled:opacity-60"
               style={{
@@ -949,25 +949,59 @@ export default function Chat({ projectId, project, onVersionCreated }) {
                 {/* Divider */}
                 <div style={{ height: 1, background: '#1e2533' }} />
 
-                {/* Edit tips */}
+                {/* Two main flows */}
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: '#475569' }}>✍️ Writing Good Edits</p>
-                  <div className="space-y-2">
-                    {[
-                      { label: 'Be specific', example: '"Add a section about push notifications with Firebase"' },
-                      { label: 'Reference sections', example: '"In section 3.1, add FR-010: OAuth via Google"' },
-                      { label: 'Batch edits', example: '"Do 3 things: 1) Add glossary 2) Update timeline 3) Add Arabic"' },
-                      { label: 'Tone / style', example: '"Make the whole doc more formal and professional"' },
-                      { label: 'Targeted rewrite', example: '"Rewrite the non-functional requirements section only"' },
-                    ].map((tip, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <div className="w-1 h-1 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: '#F47B20' }} />
-                        <p className="text-xs leading-relaxed" style={{ color: '#64748b' }}>
-                          <span className="font-semibold" style={{ color: '#94a3b8' }}>{tip.label}:</span>{' '}
-                          <span style={{ color: '#475569', fontStyle: 'italic' }}>{tip.example}</span>
-                        </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: '#475569' }}>🚀 Two Ways to Use the Chat</p>
+                  <div className="space-y-3">
+
+                    {/* Flow 1: Edit */}
+                    <div className="rounded-xl p-3" style={{ background: '#111827', border: '1px solid #1e2533' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span style={{ fontSize: 12 }}>✏️</span>
+                        <span className="text-xs font-bold" style={{ color: '#F47B20' }}>Make Edits — Creates a New SRS Version</span>
                       </div>
-                    ))}
+                      <p className="text-[10px] leading-relaxed mb-2" style={{ color: '#64748b' }}>
+                        Type your change naturally. The AI will show a plan, you reply <span className="font-semibold" style={{ color: '#22c55e' }}>yes</span> to confirm.
+                      </p>
+                      <div className="space-y-1">
+                        {[
+                          { q: 'You type:', a: '"Add multi-language support for French and German"' },
+                          { q: 'AI replies:', a: 'CONFIRM_EDIT: 🟡 Plan — reply **yes** to confirm' },
+                          { q: 'You type:', a: '"yes"' },
+                          { q: 'Result:', a: '✅ New SRS version v1.2 saved automatically' },
+                        ].map(({ q, a }) => (
+                          <div key={q} className="flex items-start gap-1.5">
+                            <span className="text-[9px] font-bold mt-0.5 flex-shrink-0" style={{ color: '#475569' }}>{q}</span>
+                            <span className="text-[10px] leading-relaxed" style={{ color: '#94a3b8' }}>{a}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Flow 2: Ask / Chat */}
+                    <div className="rounded-xl p-3" style={{ background: '#111827', border: '1px solid #1e2533' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span style={{ fontSize: 12 }}>💬</span>
+                        <span className="text-xs font-bold" style={{ color: '#F47B20' }}>Ask / Chat — No New Version Created</span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed mb-2" style={{ color: '#64748b' }}>
+                        Ask questions, get explanations, or explore the SRS. Answers are saved as chat messages — the SRS stays unchanged.
+                      </p>
+                      <div className="space-y-1">
+                        {[
+                          { q: 'You type:', a: '"How many FRs are in this document?"' },
+                          { q: 'AI replies:', a: 'A chat reply explaining the count — no version created' },
+                          { q: 'You type:', a: '"Explain the checkout flow"' },
+                          { q: 'Result:', a: '✅ Answer as chat, SRS file unchanged' },
+                        ].map(({ q, a }) => (
+                          <div key={q} className="flex items-start gap-1.5">
+                            <span className="text-[9px] font-bold mt-0.5 flex-shrink-0" style={{ color: '#475569' }}>{q}</span>
+                            <span className="text-[10px] leading-relaxed" style={{ color: '#94a3b8' }}>{a}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                   </div>
                 </div>
 
