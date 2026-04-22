@@ -551,7 +551,7 @@ CLIENT DOCUMENT RULES (STRICT)
 5. Keep the document under 15 pages (aim for 8-12)
 6. Output must be a valid Markdown document starting with a heading
 7. The section "## What Happens When Someone Uses It — A Simple Walkthrough" is MANDATORY — you MUST place it between "## Who Uses This — And What They See" and "## What You Will Receive". Write 5-8 numbered steps describing the complete user flow from landing to goal completion. Do NOT skip, combine, or merge this section with any other section.
-8. MANDATORY — Mobile App Description Rule: When describing mobile apps (iOS/Android), ALWAYS use the word "Capacitor-wrapped" in that same sentence. Do NOT use the word "native" alone without "Capacitor" qualifier. Example: CORRECT: "A mobile app for iPhone and Android (Capacitor-wrapped web app)" INCORRECT: "Native mobile apps for iPhone and Android customers" — the platform uses Capacitor, NOT fully native apps. The client MUST understand this is a web-wrapped app.
+8. MANDATORY — Mobile App Description Rule: If the SRS mentions Capacitor (or any similar web-wrapping technology like Cordova, Ionic, Flutter Web, etc.), you MUST use that same term when describing mobile apps. Do NOT replace technical wrapping terms with "native" alone. INCORRECT: "Native mobile apps for iPhone and Android" CORRECT: Use the exact wrapping technology named in the SRS. If the SRS says Capacitor → say "Capacitor-wrapped". If the SRS says React Native → say "React Native". If the SRS says fully native Swift/Kotlin → say "native". Never drop the technology qualifier.
 
 ════════════════════════════════════════
 REQUIRED SECTIONS
