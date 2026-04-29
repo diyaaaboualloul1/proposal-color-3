@@ -66,6 +66,7 @@ const activityRouter = require('./routes/activity');
 const storageRouter = require('./routes/storage');
 const convertRouter = require('./routes/convert');
 const shareRoutes = require('./routes/share');
+const proposalsRouter = require('./routes/proposals');
 const commentRoutes = require('./routes/comments');
 const settingsRouter = require('./routes/settings');
 
@@ -79,6 +80,7 @@ app.use('/api/activity', activityRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/convert', convertRouter);
 app.use('/api/share', shareRoutes);
+app.use('/api/proposals', proposalsRouter);
 app.use('/api/projects/:projectId/comments', commentRoutes);
 app.use('/api/admin/settings', settingsRouter);
 

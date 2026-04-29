@@ -8,12 +8,14 @@ import Questionnaire from './Questionnaire'
 import SrsViewer from './SrsViewer'
 import Chat from './Chat'
 import History from './History'
+import ProposalTab from './ProposalTab'
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: '▤' },
   { id: 'questionnaire', label: 'Questionnaire', icon: '✎' },
   { id: 'srs', label: 'SRS', icon: '◈' },
   { id: 'chat', label: 'Chat', icon: '⌘' },
+  { id: 'proposal', label: 'Proposal', icon: '◉' },
   { id: 'history', label: 'History', icon: '◷' },
 ]
 
@@ -181,6 +183,9 @@ export default function ProjectDetail() {
             )}
             {activeTab === 'chat' && (
               <Chat projectId={id} project={project} onVersionCreated={() => fetchProject(true)} />
+            )}
+            {activeTab === 'proposal' && (
+              <ProposalTab projectId={id} project={project} />
             )}
             {activeTab === 'history' && (
               <History projectId={id} project={project} />

@@ -11,6 +11,8 @@ import Activity from './pages/Activity'
 import Storage from './pages/Storage'
 import ShareView from './pages/ShareView'
 import Queue from './pages/Queue'
+import Proposals from './pages/Proposals'
+import StandaloneProposal from './pages/StandaloneProposal'
 import GoogleDriveSettings from './pages/Admin/GoogleDriveSettings'
 
 export default function App() {
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/projects/new" element={<NewProject />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/queue" element={<Queue />} />
+            <Route path="/proposals" element={<Proposals />} />
+            <Route path="/proposals/:id" element={<StandaloneProposal />} />
             <Route path="/activity" element={<Activity />} />
             <Route
               path="/users"
