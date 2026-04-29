@@ -18,7 +18,7 @@ async function callSrsAgent(prompt, maxTokens = 8000) {
         'Authorization': `Bearer ${process.env.OPENCLAW_TOKEN}`,
         'Content-Type': 'application/json'
       },
-      timeout: 600000 // 10 minutes
+      timeout: 1200000 // 20 minutes
     }
   );
 
@@ -403,7 +403,7 @@ async function callSrsAgentStream(prompt, onChunk, maxTokens = 8000) {
       'Content-Type': 'application/json'
     },
     responseType: 'stream',
-    timeout: 600000
+    timeout: 1200000
   });
 
   let fullContent = '';
