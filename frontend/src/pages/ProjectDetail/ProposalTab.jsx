@@ -54,9 +54,10 @@ export default function ProposalTab({ projectId, project }) {
 
   async function fetchSrsVersions() {
     try {
-      const res = await apiClient.get(`/projects/${projectId}/srs/versions`)
+      const res = await apiClient.get(`/projects/${projectId}/srs`)
+      const list = res.data?.versions || []
       // Filter to only technical versions (not client summaries)
-      const technical = (res.data || []).filter(v => !v.label?.toLowerCase().includes('client'))
+      const technical = list.filter(v => v.type === 'technical')
       setSrsVersions(technical)
     } catch (e) {
       console.error('Fetch SRS versions error:', e)
@@ -252,6 +253,15 @@ export default function ProposalTab({ projectId, project }) {
               style={{ display: 'block', width: '100%', marginTop: 4, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 6, padding: '6px 8px', fontSize: 13 }} />
           </label>
         </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button
+            onClick={handleCreate}
+            style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', cursor: 'pointer', fontSize: 14, fontWeight: 'bold' }}
+          >
+            Create Proposal →
+          </button>
+        </div>
       </div>
 
       {/* Proposals List */}
@@ -388,8 +398,8 @@ function ProposalEditor({
             </>
           )}
           {(proposal.status === 'draft' || proposal.status === 'generated') && (
-            <button onClick={onGenerate} disabled={generating} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.6 : 1 }}>
-              {generating ? 'Generating...' : '🚀 Generate'}
+            <button onClick={onGenerate} disabled={generating} style={{ background: proposal.status === 'generated' ? '#7c3aed' : '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.6 : 1 }}>
+              {generating ? 'Generating...' : proposal.status === 'generated' ? '🔄 Regenerate' : '🚀 Generate'}
             </button>
           )}
         </div>

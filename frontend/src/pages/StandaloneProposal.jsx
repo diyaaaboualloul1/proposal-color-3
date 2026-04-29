@@ -140,8 +140,8 @@ export default function StandaloneProposalPage() {
             </button>
           )}
           {(proposal.status === 'draft' || proposal.status === 'generated') && (
-            <button onClick={handleGenerate} disabled={generating} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.6 : 1 }}>
-              {generating ? 'Generating...' : '🚀 Generate'}
+            <button onClick={handleGenerate} disabled={generating} style={{ background: proposal.status === 'generated' ? '#7c3aed' : '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.6 : 1 }}>
+              {generating ? 'Generating...' : proposal.status === 'generated' ? '🔄 Regenerate' : '🚀 Generate'}
             </button>
           )}
         </div>
