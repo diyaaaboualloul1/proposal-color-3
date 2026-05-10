@@ -226,7 +226,11 @@ export default function ProposalBuilderPage() {
       }
       setLoading(false)
     }
-    apiClient.get('/proposals-builder/templates').then(r => setTemplateCards(Array.isArray(r.data) ? r.data : r.data.templates || [])).catch(() => {})
+    apiClient.get('/proposals-builder/templates').then(r => {
+      const templates = Array.isArray(r.data) ? r.data : r.data.templates || []
+      setTemplateCards(templates)
+      if (templates.length > 0) setSelectedTemplate(templates[0])
+    }).catch(() => {})
     apiClient.get('/projects').then(r => setProjects(Array.isArray(r.data) ? r.data : r.data.projects || [])).catch(() => {})
   }, [id])
 
@@ -403,6 +407,24 @@ export default function ProposalBuilderPage() {
     try {
       const srsVer = srsVersions[selectedSrsIndex]
       let initialBlocks = selectedTemplate?.blocks || []
+      // Default template if none selected — SRS PDF style
+      if (!selectedTemplate && !initialBlocks.length) {
+        const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        initialBlocks = [
+          { id: `cover_${Date.now()}`, type: 'cover', content: { title: 'Project Proposal', subtitle: 'Proposal', client: '', date: today, preparedBy: 'Fifty Studios Holding Company' } },
+          { id: `heading_${Date.now()}_1`, type: 'heading', content: { text: 'Overview', level: 2 } },
+          { id: `text_${Date.now()}`, type: 'text', content: { html: '<p>This proposal outlines the project scope, technical approach, timeline, and investment required to deliver the solution.</p>' } },
+          { id: `heading_${Date.now()}_2`, type: 'heading', content: { text: 'Scope of Work', level: 2 } },
+          { id: `scope_${Date.now()}`, type: 'scope', content: { items: [{ label: 'Discovery & Requirements', checked: false }, { label: 'UI/UX Design', checked: false }, { label: 'Frontend Development', checked: false }, { label: 'Backend Development', checked: false }, { label: 'Testing & QA', checked: false }, { label: 'Deployment & Launch', checked: false }], ordered: false, source: 'template' } },
+          { id: `heading_${Date.now()}_3`, type: 'heading', content: { text: 'Tech Stack', level: 2 } },
+          { id: `techstack_${Date.now()}`, type: 'techstack', content: { items: [], source: 'template' } },
+          { id: `heading_${Date.now()}_4`, type: 'heading', content: { text: 'Timeline', level: 2 } },
+          { id: `timeline_${Date.now()}`, type: 'timeline', content: { phases: [{ name: 'Phase 1: Discovery', duration: '' }, { name: 'Phase 2: Design', duration: '' }, { name: 'Phase 3: Development', duration: '' }, { name: 'Phase 4: Testing & Launch', duration: '' }] } },
+          { id: `heading_${Date.now()}_5`, type: 'heading', content: { text: 'Investment', level: 2 } },
+          { id: `pricing_${Date.now()}`, type: 'pricing', content: { currency: 'KWD', items: [] } },
+          { id: `callout_${Date.now()}`, type: 'callout', content: { text: 'This proposal is valid for 30 days from the date above.', bgColor: '#7c3aed', textColor: '#ffffff' } },
+        ]
+      }
       console.log('[handleCreateProposal] template blocks:', initialBlocks.length, 'srsVer:', srsVer?.version)
 
       // If an SRS version is selected, fetch its content and convert to blocks
@@ -521,6 +543,28 @@ export default function ProposalBuilderPage() {
                   <span style={{ fontSize: 14 }}>Link to an existing SRS project</span>
                 </label>
                 <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0 30px' }}>Freeform proposal (no project) — default</p>
+              </div>
+
+              {/* TEMPLATE SELECTOR */}
+              <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+                <label style={{ color: '#94a3b8', fontSize: 11, display: 'block', marginBottom: 12, letterSpacing: 1 }}>TEMPLATE</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                  {templateCards.map(t => (
+                    <button key={t.id} onClick={() => {
+                      if (projectLocked) return
+                      setSelectedTemplate(t)
+                      logger.wizardStarted(t.name)
+                    }} style={{
+                      background: selectedTemplate?.id === t.id ? '#0f172a' : '#1e293b',
+                      color: '#f1f5f9',
+                      border: selectedTemplate?.id === t.id ? '2px solid #7c3aed' : '1px solid #334155',
+                      borderRadius: 8, padding: '10px 14px', cursor: projectLocked ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 0.15s'
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{t.name}</div>
+                      <div style={{ fontSize: 10, color: '#64748b' }}>{Array.isArray(t.blocks) ? t.blocks.length : 0} blocks</div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {linkToProject && (

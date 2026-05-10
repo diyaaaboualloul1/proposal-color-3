@@ -3,19 +3,19 @@ import { BLOCK_TYPES } from './BlockPalette'
 import TiptapEditor from './TiptapEditor'
 
 const DEFAULT_CONTENT = {
-  cover: { title: '', client: '', date: '', preparedBy: '', company: 'Fifty Studios', email: 'hello@5ostudios.com' },
+  cover: { title: '', subtitle: 'Proposal', client: '', date: '', preparedBy: 'Fifty Studios Holding Company' },
   text: { html: '' },
   heading: { text: '', level: 2 },
   table: { headers: ['Item', 'Description'], rows: [['', '']] },
   image: { url: '', alt: '', caption: '' },
-  divider: { style: 'solid', color: '#334155', thickness: 1 },
+  divider: { style: 'solid', color: '#E8500A', thickness: 1 },
   list: { items: [{ label: '', checked: false }], ordered: false },
   scope: { items: [], source: 'srs', projectId: null },
   timeline: { phases: [], projectId: null },
   pricing: { items: [{ label: '', price: 0 }], currency: 'KWD' },
   overview: { text: '', projectId: null },
   techstack: { items: [], projectId: null },
-  callout: { text: '', bgColor: '#7c3aed', textColor: '#ffffff' },
+  callout: { text: '', bgColor: '#E8500A', textColor: '#ffffff' },
   columns: { columns: 2, blocks: [[], []], content: ['', ''] },
   pagebreak: {},
   footer: { text: '© Fifty Studios Holding Company', pageNumbers: true },
@@ -180,20 +180,55 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
     const labelStyle = { color: '#94a3b8', fontSize: 11, marginBottom: 8, display: 'block' }
 
     switch (block.type) {
-      case 'cover':
+      case 'cover': {
+        const c = block.content
+        const today = c.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         return (
-          <div style={wrapStyle}>
-            <div style={{ textAlign: 'center', padding: '20px 0' }}>
-              <div style={{ fontSize: 11, color: '#7c3aed', marginBottom: 8, letterSpacing: 2 }}>FIFTY STUDIOS</div>
-              <input value={block.content.title || ''} onChange={e => updateBlock(block.id, { ...block.content, title: e.target.value })} placeholder="Proposal Title" style={{ display: 'block', width: '100%', fontSize: 20, fontWeight: 'bold', background: 'transparent', border: 'none', color: '#f1f5f9', textAlign: 'center', marginBottom: 12 }} />
-              <input value={block.content.client || ''} onChange={e => updateBlock(block.id, { ...block.content, client: e.target.value })} placeholder="Client Name" style={{ display: 'block', width: '100%', fontSize: 14, background: 'transparent', border: 'none', color: '#94a3b8', textAlign: 'center', marginBottom: 8 }} />
-              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 12, color: '#64748b' }}>
-                <input value={block.content.date || ''} onChange={e => updateBlock(block.id, { ...block.content, date: e.target.value })} placeholder="Date" style={{ background: 'transparent', border: 'none', color: '#64748b', textAlign: 'center' }} />
-                <input value={block.content.preparedBy || ''} onChange={e => updateBlock(block.id, { ...block.content, preparedBy: e.target.value })} placeholder="Prepared by" style={{ background: 'transparent', border: 'none', color: '#64748b', textAlign: 'center' }} />
+          <div style={{ borderRadius: 8, overflow: 'hidden', border: isSelected ? '2px solid #E8500A' : '1px solid #334155' }}>
+            {/* TOP 70% — Orange background + logo */}
+            <div style={{ background: '#E8500A', padding: '40px 40px 32px', textAlign: 'center', position: 'relative' }}>
+              <img src="/50studios-logo.png" alt="Fifty Studios" style={{ maxWidth: 240, height: 'auto', marginBottom: 20, display: 'block', margin: '0 auto 20px' }} />
+              <input value={c.title || ''} onChange={e => updateBlock(block.id, { ...c, title: e.target.value })} placeholder="Proposal Title" style={{ display: 'block', width: '100%', fontSize: 20, fontWeight: 'bold', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center', outline: 'none', marginBottom: 10 }} />
+              <input value={c.subtitle || ''} onChange={e => updateBlock(block.id, { ...c, subtitle: e.target.value })} placeholder="Proposal" style={{ display: 'block', width: '100%', fontSize: 12, background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.75)', textAlign: 'center', outline: 'none' }} />
+            </div>
+            {/* Orange divider */}
+            <div style={{ height: 3, background: '#E8500A' }} />
+            {/* BOTTOM 30% — White info area */}
+            <div style={{ background: '#ffffff', padding: '20px 40px 24px' }}>
+              {/* 3-col info row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+                {['Address', 'Contacts', 'Online'].map(lbl => (
+                  <div key={lbl}>
+                    <div style={{ fontSize: 9, fontWeight: 'bold', color: '#E8500A', letterSpacing: 1, marginBottom: 4 }}>{lbl.toUpperCase()}</div>
+                    {lbl === 'Address' && <div style={{ fontSize: 9, color: '#1A1A2E', lineHeight: 14 }}>Ahmed Al-Jaber St. Prime Tower<br/>Capital, Sharq</div>}
+                    {lbl === 'Contacts' && <div style={{ fontSize: 9, color: '#1A1A2E', lineHeight: 14 }}>Phone: +965 9879 9919<br/>Email: info@5ostudios.com</div>}
+                    {lbl === 'Online' && <div style={{ fontSize: 9, color: '#1A1A2E', lineHeight: 14 }}>Website: www.5ostudios.com</div>}
+                  </div>
+                ))}
               </div>
+              {/* Divider */}
+              <div style={{ borderTop: '1px solid #E5E7EB', marginBottom: 14 }} />
+              {/* Client row */}
+              <div style={{ marginBottom: 14 }}>
+                <input value={c.client || ''} onChange={e => updateBlock(block.id, { ...c, client: e.target.value })} placeholder="Client Name" style={{ fontSize: 14, fontWeight: 'bold', background: 'transparent', border: 'none', color: '#1A1A2E', width: '100%', outline: 'none' }} />
+              </div>
+              {/* Date + Prepared by row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, border: '1px solid #E5E7EB', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ padding: '8px 12px', background: '#F3F4F6', borderRight: '1px solid #E5E7EB' }}>
+                  <span style={{ fontSize: 9, fontWeight: 'bold', color: '#E8500A', marginRight: 8 }}>DATE</span>
+                  <span style={{ fontSize: 9, color: '#1A1A2E' }}>{today}</span>
+                </div>
+                <div style={{ padding: '8px 12px', background: '#F3F4F6' }}>
+                  <span style={{ fontSize: 9, fontWeight: 'bold', color: '#E8500A', marginRight: 8 }}>PREPARED BY</span>
+                  <span style={{ fontSize: 9, color: '#1A1A2E' }}>Fifty Studios Holding Company</span>
+                </div>
+              </div>
+              {/* Confidential */}
+              <div style={{ fontSize: 8, color: '#6B7280', fontStyle: 'italic' }}>Private & Confidential — All rights reserved © Fifty Studios Holding Company</div>
             </div>
           </div>
         )
+      }
       case 'text':
         return (
           <div style={wrapStyle}>
