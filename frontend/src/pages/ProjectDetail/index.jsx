@@ -8,7 +8,6 @@ import Questionnaire from './Questionnaire'
 import SrsViewer from './SrsViewer'
 import Chat from './Chat'
 import History from './History'
-import ProposalTab from './ProposalTab'
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: '▤' },
@@ -185,7 +184,7 @@ export default function ProjectDetail() {
               <Chat projectId={id} project={project} onVersionCreated={() => fetchProject(true)} />
             )}
             {activeTab === 'proposal' && (
-              <ProposalTab projectId={id} project={project} />
+              <div style={{ color: '#64748b', padding: 40, textAlign: 'center' }}>Proposal builder — use /proposals from sidebar</div>
             )}
             {activeTab === 'history' && (
               <History projectId={id} project={project} />

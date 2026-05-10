@@ -770,6 +770,76 @@ router.delete('/:version', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /projects/:projectId/srs/:version/proposal-context — extract scope & overview for proposals
+router.get('/:version/proposal-context', authMiddleware, async (req, res) => {
+  const project = await checkProjectAccess(req, res);
+  if (!project) return;
+
+  const { version } = req.params;
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM srs_versions WHERE project_id = $1 AND version = $2',
+      [project.id, version]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'SRS version not found' });
+    }
+
+    const srsVersion = result.rows[0];
+    const content = await fs.readFile(srsVersion.file_path, 'utf8');
+
+    // Extract Project Overview — first paragraph after title
+    let projectOverview = '';
+    const lines = content.split('\n');
+    let capturingOverview = false;
+    let paraLines = [];
+    for (const line of lines) {
+      if (line.startsWith('# ') && !capturingOverview) {
+        capturingOverview = true;
+        continue;
+      }
+      if (capturingOverview) {
+        if (line.startsWith('## ') || line.startsWith('### ')) break;
+        if (line.trim()) {
+          paraLines.push(line.trim());
+        } else if (paraLines.length > 0) {
+          break;
+        }
+      }
+    }
+    projectOverview = paraLines.join(' ').substring(0, 500);
+
+    // Extract Scope — look for "1.2" or "Scope" section
+    let scopeSummary = '';
+    const scopeMatch = content.match(/#{1,3}\s+[\d.]+\s*Scope[\s\S]*?(?=#{1,3}\s+[\d.]+\s+[A-Z]|${'#'.repeat(1,3)}\s+Overall|$)/i);
+    if (scopeMatch) {
+      scopeSummary = scopeMatch[0]
+        .replace(/#{1,3}\s+[\d.]+\s*Scope\s*/gi, '')
+        .replace(/#{1,3}\s+/g, ' ')
+        .trim()
+        .substring(0, 2000);
+    }
+
+    // If no named scope section, try to extract major functional areas
+    if (!scopeSummary) {
+      const frs = content.match(/#{2,3}\s+Functional Requirements[\s\S]*?(?=#{1,3}\s+[\d.]+\s+Non|F#|## Notes|## Assumptions|$)/i);
+      if (frs) {
+        scopeSummary = frs[0].replace(/#{2,3}\s+Functional Requirements[\s\S]*/gi, '').trim().substring(0, 2000);
+      }
+    }
+
+    res.json({ projectOverview, scopeSummary });
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return res.status(404).json({ error: 'SRS file not found' });
+    }
+    console.error('Proposal context error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /projects/:projectId/srs/:version (get markdown content)
 router.get('/:version', authMiddleware, async (req, res) => {
   const project = await checkProjectAccess(req, res);
@@ -1554,3 +1624,20 @@ router.get('/:version/drive-status', authMiddleware, async (req, res) => {
 module.exports = router;
 module.exports.generateSrsDocument = generateSrsDocument;
 module.exports.getNextVersion = getNextVersion;
+
+// GET /api/srs/:id/content — serve SRS markdown content for proposal binding
+router.get('/:id/content', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT file_path FROM srs_versions WHERE id = $1', [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'SRS not found' });
+    const filePath = result.rows[0].file_path;
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'SRS file not found on disk' });
+    }
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.json({ content });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});

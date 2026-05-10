@@ -32,21 +32,93 @@ async function checkProposalAccess(req, res) {
 
 // Helper: build proposal prompt
 function buildProposalPrompt(data) {
+  const origPrice = Number(data.original_price || 0);
+  const discPrice = Number(data.discounted_price || 0);
+  const effectivePrice = discPrice > 0 ? discPrice : origPrice;
+  const maintPrice = Number(data.maintenance_second_year || 600);
+
   const timeline = data.timeline_type === 'phase'
     ? data.timeline_data.map((t, i) => `${i + 1}. ${t.name} — ${t.duration}`).join('\n')
     : data.timeline_data.map((t, i) => `Week ${i + 1}: ${t.duration}`).join('\n');
 
-  const paymentTerms = data.payment_terms.map(p =>
-    `${p.percentage}% upon ${p.label} (${((data.discounted_price * p.percentage) / 100).toFixed(2)} KWD)`
+  // Clean payment terms — label already contains the full description (e.g. "50% upon contract signing")
+  const paymentTerms = (data.payment_terms || []).map(p =>
+    `${p.label} (${((effectivePrice * p.percentage) / 100).toFixed(2)} KWD)`
   ).join('\n');
 
-  const scopeSection = data.scope_summary
-    ? `## Scope of Work\n${data.scope_summary}\n\nUser additions:\n${data.exclusions || '(none)'}`
-    : `## Scope of Work\n${data.exclusions || 'As per project requirements.'}`;
+  // Build scope section — parse In/Out cleanly
+  // Supports two formats:
+  // 1. SRS format: "**In Scope:**\n  - item1\n  - item2\n**Out of Scope:**\n  - item3"
+  // 2. Manual format: "In: item1, item2\nOut: item3"
+  let scopeText = '';
+  if (data.scope_summary && data.scope_summary.trim()) {
+    scopeText = data.scope_summary.trim();
+  } else if (data.projectOverview && data.projectOverview.trim()) {
+    scopeText = data.projectOverview.trim();
+  }
+
+  let scopeSection = '## Scope of Work\n';
+  if (scopeText) {
+    let inText = '';
+    let outText = '';
+
+    // Try SRS-style markers first ("**In Scope:**" / "**Out of Scope:**")
+    const srsInMarker = '**In Scope:**';
+    const srsOutMarker = '**Out of Scope:**';
+    const srsInIdx = scopeText.indexOf(srsInMarker);
+    const srsOutIdx = scopeText.indexOf(srsOutMarker);
+
+    if (srsInIdx >= 0 && srsOutIdx >= 0 && srsOutIdx > srsInIdx) {
+      inText = scopeText.substring(srsInIdx + srsInMarker.length, srsOutIdx).trim();
+      outText = scopeText.substring(srsOutIdx + srsOutMarker.length).trim();
+    } else if (srsInIdx >= 0) {
+      inText = scopeText.substring(srsInIdx + srsInMarker.length).trim();
+    } else if (srsOutIdx >= 0) {
+      outText = scopeText.substring(srsOutIdx + srsOutMarker.length).trim();
+    } else {
+      // Fall back to manual format: "In:" and "Out:" on separate lines
+      const inMatch = scopeText.match(/(?:^|\n)In:\s*([\s\S]*?)(?=Out:\s*|$)/i);
+      const outMatch = scopeText.match(/(?:^|\n)Out:\s*([\s\S]*?)(?=$|\nIn:)/i);
+      inText = inMatch ? inMatch[1].trim() : '';
+      outText = outMatch ? outMatch[1].trim() : '';
+    }
+
+    if (inText || outText) {
+      if (inText) {
+        // Split by newline OR ' - ' separator (AI often concatenates items this way)
+        const inItems = inText.split(/\n/).reduce((acc, line) => {
+          const cleaned = line.replace(/^\s*[-*]+\s*/, '').trim();
+          if (!cleaned) return acc;
+          // If line contains ' - ' separators, split them too
+          if (cleaned.includes(' - ') && !cleaned.startsWith('-')) {
+            return acc.concat(cleaned.split(/\s+-\s+/));
+          }
+          return acc.concat(cleaned);
+        }, []).filter(Boolean);
+        scopeSection += '**In:**\n' + inItems.map(s => `- ${s}`).join('\n') + '\n';
+      }
+      if (outText) {
+        const outItems = outText.split(/\n/).reduce((acc, line) => {
+          const cleaned = line.replace(/^\s*[-*]+\s*/, '').trim();
+          if (!cleaned) return acc;
+          if (cleaned.includes(' - ') && !cleaned.startsWith('-')) {
+            return acc.concat(cleaned.split(/\s+-\s+/));
+          }
+          return acc.concat(cleaned);
+        }, []).filter(Boolean);
+        scopeSection += '**Out:**\n' + outItems.map(s => `- ${s}`).join('\n') + '\n';
+      }
+    } else {
+      scopeSection += scopeText + '\n';
+    }
+  } else {
+    scopeSection += 'As per project requirements defined in the attached SRS document.\n';
+  }
+
+  const projectOverview = (data.projectOverview || '').trim()
+    || `${data.projectName} is a web platform for ${data.clientName || 'their business needs'}. This proposal covers the development, hosting, and maintenance of the platform as described below.`;
 
   return `You are a Fifty Studios proposal writer. Generate a professional proposal document in the exact format below.
-
-Replace everything in [brackets] with the actual values.
 
 === PROPOSAL FORMAT ===
 
@@ -55,30 +127,29 @@ Address: Khalid Bin Al Waleed St. Oula Tower, Capital, Sharq
 Phone: +965 9879 9919 | Email: info@5ostudios.com | Website: www.5ostudios.com
 
 Price Quotation Proposal
-Project: ${data.projectName} | Client: ${data.clientName} | Date: ${new Date().toLocaleDateString('en-GB')} | Prepared by: Fifty Studios Holding
+Project: ${data.projectName} | Client: ${data.clientName || 'Client'} | Date: ${new Date().toLocaleDateString('en-GB')} | Prepared by: Fifty Studios Holding
 
 ## Project Overview
-${data.projectOverview || `${data.projectName} is a web platform for ${data.clientName || 'their business needs'}. This proposal covers the development, hosting, and maintenance of the platform as described below.`}
+${projectOverview}
 
 ${scopeSection}
 
 ## Project Timeline
 ${timeline}
-
-${data.ai_timeline_edit ? '[NOTE TO AI: Review the timeline above. If any phase/week durations seem unrealistic for the scope described, adjust them to reasonable estimates. Keep the structure but fix the timing.]' : ''}
+${data.ai_timeline_edit ? '\nNote: Timeline durations above are estimates. AI may adjust if unrealistic for the scope described.\n' : ''}
 
 ## Financial Proposal
 | Description | Amount (KWD) |
 |---|---|
-| Original Project Cost | ${(data.original_price || 0).toFixed(2)} |
-| Discounted Price | ${(data.discounted_price || 0).toFixed(2)} |
+| Original Project Cost | ${origPrice.toFixed(2)} |
+| Discounted Price | ${discPrice.toFixed(2)} |
 
 **Payment Terms:**
 ${paymentTerms}
 
 ## Maintenance & Hosting
-First Year: Included in total cost (${(data.discounted_price || 0).toFixed(2)} KWD)
-Second Year Renewal: ${(data.maintenance_second_year || 600).toFixed(2)} KWD (includes hosting, maintenance, and technical support)
+First Year: Included in total cost (${effectivePrice.toFixed(2)} KWD)
+Second Year Renewal: ${maintPrice.toFixed(2)} KWD (includes hosting, maintenance, and technical support)
 
 ## Notes & Conditions
 1. The client shall provide all branding materials (logo, color palette, and content).
@@ -87,12 +158,18 @@ Second Year Renewal: ${(data.maintenance_second_year || 600).toFixed(2)} KWD (in
 4. Any additional feature requests beyond this scope will be quoted separately.
 5. Delays caused by third parties (e.g., payment provider, content submission) are not part of the project timeline.
 6. Source code will be delivered upon receipt of final payment.
-
-${data.notes ? `## Additional Notes\n${data.notes}` : ''}
+${data.notes ? `\n## Additional Notes\n${data.notes}` : ''}
 
 === END FORMAT ===
 
-IMPORTANT: Return ONLY the raw proposal text starting from the [Fifty Studios Header] line. No preamble, no explanation.`;
+IMPORTANT:
+- Output must start with the [Fifty Studios Header] line
+- Do NOT include these instructions in your output
+- The Financial Proposal table must have exactly 2 rows: "Original Project Cost" and "Discounted Price" — do NOT add extra rows
+- Do NOT add preamble or explanation
+- Each scope item (In and Out) MUST be on its own separate line starting with "- ". Do NOT combine multiple items onto one line.
+- Payment Terms must NOT repeat "50% upon" — use the label exactly as provided
+`;
 }
 
 // ============================================
@@ -155,7 +232,7 @@ router.post('/', authMiddleware, async (req, res) => {
         timeline_type, timeline_data,
         original_price, discounted_price, payment_terms,
         maintenance_second_year, exclusions, notes, ai_timeline_edit,
-        content, status, created_by
+        inputs_data, status, created_by
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'draft',$15)
       RETURNING *
     `, [
@@ -182,47 +259,60 @@ router.post('/', authMiddleware, async (req, res) => {
 // ============================================
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const {
-      name, client_name, srs_version,
-      timeline_type, timeline_data,
-      original_price, discounted_price, payment_terms,
-      maintenance_second_year, exclusions, notes, ai_timeline_edit,
-      scope_summary, project_overview
-    } = req.body;
+    const allowed = [
+      'name', 'client_name', 'srs_version',
+      'timeline_type', 'timeline_data',
+      'original_price', 'discounted_price', 'payment_terms',
+      'maintenance_second_year', 'exclusions', 'notes', 'ai_timeline_edit',
+      'scope_summary', 'project_overview', 'content'
+    ];
+    const updates = [];
+    const params = [];
+    let idx = 1;
 
-    const result = await pool.query(`
-      UPDATE proposals SET
-        name = COALESCE($1, name),
-        client_name = COALESCE($2, client_name),
-        srs_version = COALESCE($3, srs_version),
-        timeline_type = COALESCE($4, timeline_type),
-        timeline_data = COALESCE($5, timeline_data),
-        original_price = COALESCE($6, original_price),
-        discounted_price = COALESCE($7, discounted_price),
-        payment_terms = COALESCE($8, payment_terms),
-        maintenance_second_year = COALESCE($9, maintenance_second_year),
-        exclusions = COALESCE($10, exclusions),
-        notes = COALESCE($11, notes),
-        ai_timeline_edit = COALESCE($12, ai_timeline_edit),
-        content = COALESCE($13, content),
-        updated_at = NOW()
-      WHERE id = $14
-      RETURNING *
-    `, [
-      name, client_name, srs_version, timeline_type,
-      timeline_data ? JSON.stringify(timeline_data) : null,
-      original_price, discounted_price,
-      payment_terms ? JSON.stringify(payment_terms) : null,
-      maintenance_second_year, exclusions, notes, ai_timeline_edit,
-      JSON.stringify({scope_summary: scope_summary || '', project_overview: project_overview || ''}),
-      req.params.id
-    ]);
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) {
+        let val = req.body[field];
+        // JSON-serialize only these JSON fields
+        if (field === 'timeline_data' || field === 'payment_terms') {
+          val = val === null ? null : JSON.stringify(val);
+        } else if (field === 'scope_summary' || field === 'project_overview') {
+          // These are stored inside inputs_data JSONB
+          // handled separately below — skip here
+          continue;
+        }
+        updates.push(`${field} = $${idx}`);
+        params.push(val);
+        idx++;
+      }
+    }
+
+    // Handle inputs_data specially: merge scope_summary/project_overview into existing inputs_data
+    if (req.body.scope_summary !== undefined || req.body.project_overview !== undefined) {
+      updates.push(`inputs_data = $${idx}`);
+      params.push(JSON.stringify({
+        scope_summary: req.body.scope_summary || '',
+        project_overview: req.body.project_overview || ''
+      }));
+      idx++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    params.push(req.params.id);
+    const result = await pool.query(
+      `UPDATE proposals SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`,
+      params
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Proposal not found' });
     }
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('[Proposals] PUT error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -256,27 +346,54 @@ router.post('/:id/generate', authMiddleware, async (req, res) => {
     // Auto-fill SRS content if srs_version is set
     let scope_summary = '';
     let project_overview = '';
-    if (p.srs_version && p.project_id) {
+    // First try reading from inputs_data (JSONB column)
+    try {
+      const inputs = typeof p.inputs_data === 'string' ? JSON.parse(p.inputs_data) : (p.inputs_data || {});
+      scope_summary = inputs.scope_summary || '';
+      project_overview = inputs.project_overview || '';
+    } catch(e) {}
+    // If still empty and srs_version is set, extract from SRS file
+    if ((!scope_summary || !project_overview) && p.srs_version && p.project_id) {
       try {
         const srsPath = path.join(__dirname, '../../projects', String(p.project_id), `srs-v${p.srs_version}.md`);
         const srsContent = await fs.readFile(srsPath, 'utf8');
-        // Extract project overview (section 1.1 or first paragraph)
-        const overviewMatch = srsContent.match(/# .+?\n[^#]+/);
-        project_overview = overviewMatch ? overviewMatch[0].replace(/#+\s/g, '').trim().substring(0, 500) : '';
-        // Extract scope items from section 1.2
-        const scopeMatch = srsContent.match(/#{1,2}\s+Scope[\s\S]+?(?=#{1,2}\s+[A-Z])/);
-        if (scopeMatch) {
-          scope_summary = scopeMatch[0].replace(/#+\s/g, '').substring(0, 2000);
+        // Extract project overview — first paragraph after title
+        const lines = srsContent.split('\n');
+        let capturing = false;
+        let paraLines = [];
+        for (const line of lines) {
+          if (line.startsWith('# ') && !capturing) { capturing = true; continue; }
+          if (capturing) {
+            if (line.startsWith('## ') || line.startsWith('### ')) break;
+            if (line.trim()) paraLines.push(line.trim());
+            else if (paraLines.length > 0) break;
+          }
+        }
+        if (!project_overview) project_overview = paraLines.join(' ').replace(/\s+/g, ' ').substring(0, 500);
+        // Fallback: use DB description if SRS paragraph is too generic/long
+        if (!project_overview || project_overview.length > 300) {
+          project_overview = (p.description || '').trim() || project_overview;
+        }
+        // Extract scope — look for Scope section
+        if (!scope_summary) {
+          const scopeMatch = srsContent.match(/#{1,3}\s+[\d.]+\s*Scope[\s\S]*?(?=#{1,3}\s+[\d.]+\s+[A-Z]|={3,}|---|$)/i);
+          if (scopeMatch) {
+            scope_summary = scopeMatch[0]
+              .replace(/#{1,3}\s*[\d.]+\s*Scope\s*/gi, '')
+              .replace(/#{2,3}\s+/g, '\n')
+              .replace(/\n\s*/g, '\n')
+              .trim().substring(0, 3000);
+          }
         }
       } catch (e) {
-        console.warn('[Proposals] Could not read SRS for auto-fill:', e.message);
+        console.warn('[Proposals] Could not read SRS:', e.message);
       }
     }
 
     const data = {
       projectName: p.name,
       clientName: p.client_name,
-      projectOverview: project_overview || p.content ? JSON.parse(p.content || '{}').project_overview : '',
+      projectOverview: project_overview,
       scope_summary: scope_summary,
       exclusions: p.exclusions,
       timeline_type: p.timeline_type,
@@ -292,15 +409,16 @@ router.post('/:id/generate', authMiddleware, async (req, res) => {
     const prompt = buildProposalPrompt(data);
     const generated = await callSrsAgentWithRetry(prompt, 6000);
 
-    // Update proposal with generated content
+    // Update proposal with generated content — preserve 'accepted' status if already set
+    const newStatus = p.status === 'accepted' ? 'accepted' : 'generated';
     const updated = await pool.query(`
       UPDATE proposals SET
         content = $1,
-        status = 'generated',
+        status = $2,
         updated_at = NOW()
-      WHERE id = $2
+      WHERE id = $3
       RETURNING *
-    `, [generated, req.params.id]);
+    `, [generated, newStatus, req.params.id]);
 
     res.json(updated.rows[0]);
   } catch (err) {
@@ -360,8 +478,25 @@ router.post('/:id/generate-pdf', authMiddleware, async (req, res) => {
     await fs.mkdir(proposalsDir, { recursive: true });
 
     const pdfPath = path.join(proposalsDir, `proposal-${p.id}.pdf`);
+
+    // Strip the [Fifty Studios Header] block from content — it belongs on the cover page only,
+    // not as body content that spills onto page 2+ as duplicate header text
+    // The header block in generated content looks like:
+    // [Fifty Studios Header]
+    // Address: ... | Email: ... | Website: ...
+    // Price Quotation Proposal
+    // Project: ... | Client: ... | Date: ... | Prepared by: ...
+    let pdfContent = p.content || '';
+    pdfContent = pdfContent
+      .replace(/^\[Fifty Studios Header\][\s\S]*?(?=\n## )/m, '')          // remove header block before first ## section
+      .replace(/^Address:[^\n]*\n/, '')                                    // Address: line
+      .replace(/^Phone:[^\n]*\n/, '')                                       // Phone: line
+      .replace(/^Price Quotation Proposal[^\n]*\n/, '')                    // Price Quotation Proposal line
+      .replace(/^Project:[^\n]*\n/, '')                                     // Project: full line (contains Client/Date/Prepared too)
+      .replace(/^Prepared by:[^\n]*\n/, '');                                // Prepared by: line
+
     await generatePdfFromMarkdown(
-      p.content,
+      pdfContent,
       pdfPath,
       p.name,
       `v${p.id}`,

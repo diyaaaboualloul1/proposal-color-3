@@ -11,7 +11,7 @@ async function enqueue(job, meta = {}) {
   });
 }
 
-const JOB_TIMEOUT_MS = 12 * 60 * 1000; // 12 minutes per job — large docs can take 7-10 min
+const JOB_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes per job — large docs can take 10-12 min
 
 async function processNext() {
   if (isProcessing || queue.length === 0) return;

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+// MARKER_UNIQUE_APP.JSX_789 1778419419749
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -12,7 +13,7 @@ import Storage from './pages/Storage'
 import ShareView from './pages/ShareView'
 import Queue from './pages/Queue'
 import Proposals from './pages/Proposals'
-import StandaloneProposal from './pages/StandaloneProposal'
+import ProposalBuilderPage from './pages/ProposalBuilderPage'
 import GoogleDriveSettings from './pages/Admin/GoogleDriveSettings'
 
 export default function App() {
@@ -37,7 +38,7 @@ export default function App() {
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/queue" element={<Queue />} />
             <Route path="/proposals" element={<Proposals />} />
-            <Route path="/proposals/:id" element={<StandaloneProposal />} />
+            <Route path="/builder/:id" element={<ProposalBuilderPage />} />
             <Route path="/activity" element={<Activity />} />
             <Route
               path="/users"

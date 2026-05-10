@@ -40,6 +40,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Trust proxy (fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+app.set('trust proxy', 1);
+
 // Rate limiting
 const { generalLimiter } = require('./middleware/rateLimit');
 app.use('/api/', generalLimiter);
@@ -61,12 +64,15 @@ const usersRouter = require('./routes/users');
 const projectsRouter = require('./routes/projects');
 const questionnaireRouter = require('./routes/questionnaire');
 const srsRouter = require('./routes/srs');
+const srsContentRouter = require('./routes/srs_content');
 const chatRouter = require('./routes/chat');
 const activityRouter = require('./routes/activity');
 const storageRouter = require('./routes/storage');
 const convertRouter = require('./routes/convert');
 const shareRoutes = require('./routes/share');
 const proposalsRouter = require('./routes/proposals');
+const proposalBuilderRouter = require('./routes/proposal_builder');
+const proposalPdfRouter = require('./routes/proposal_pdf');
 const commentRoutes = require('./routes/comments');
 const settingsRouter = require('./routes/settings');
 
@@ -75,12 +81,15 @@ app.use('/api/users', usersRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/projects/:projectId/questionnaire', questionnaireRouter);
 app.use('/api/projects/:projectId/srs', srsRouter);
+app.use('/api/srs-content', srsContentRouter);
 app.use('/api/projects/:projectId/chat', chatRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/storage', storageRouter);
 app.use('/api/convert', convertRouter);
 app.use('/api/share', shareRoutes);
 app.use('/api/proposals', proposalsRouter);
+app.use('/api/proposals-builder', proposalBuilderRouter);
+app.use('/api/proposals-pdf', proposalPdfRouter);
 app.use('/api/projects/:projectId/comments', commentRoutes);
 app.use('/api/admin/settings', settingsRouter);
 
