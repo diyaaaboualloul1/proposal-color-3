@@ -190,7 +190,8 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           let line = ''
           for (const word of words) {
             const test = line + (line ? ' ' : '') + word
-            if (test.length > 82) {
+            // Wrap when pixel width exceeds available content width
+            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
               newPageIfNeeded(margin + 30)
               page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
               y -= 16
@@ -209,8 +210,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       case 'heading': {
         newPageIfNeeded(margin + 50)
         const sizes = { 1: 20, 2: 16, 3: 13 }
-        const size = sizes[block.content.level] || 16
-        page.drawText(block.content.text || '', { x: margin, y, size, font: helvB, color: DARK, width: contentWidth })
+        let size = sizes[block.content.level] || 16
+        const rawText = block.content.text || ''
+        while (size > 9 && helvB.widthOfTextAtSize(rawText, size) > contentWidth)
+          size--
+        page.drawText(rawText, { x: margin, y, size, font: helvB, color: DARK, width: contentWidth })
         y -= size + 12
         break
       }
@@ -307,13 +311,29 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'overview': {
         const text = block.content.text || block.content.html || ''
-        const plain = text.replace(/<[^>]+>/g, '').trim()
+        const plain = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
         if (plain) {
           newPageIfNeeded(margin + 50)
           page.drawText('Overview', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
           y -= 24
-          page.drawText(plain.slice(0, 200), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-          y -= 30
+          // Word-wrap the overview text using pixel width
+          const words = plain.split(' ')
+          let line = ''
+          for (const word of words) {
+            const test = line + (line ? ' ' : '') + word
+            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
+              newPageIfNeeded(margin + 20)
+              page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+              y -= 16
+              line = word
+            } else { line = test }
+          }
+          if (line) {
+            newPageIfNeeded(margin + 20)
+            page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+            y -= 16
+          }
+          y -= 14
         }
         break
       }

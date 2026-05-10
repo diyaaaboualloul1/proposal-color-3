@@ -260,6 +260,7 @@ export default function ProposalBuilderPage() {
       console.log('[fetchProposal] safeClone blocks count:', data.blocks?.length)
       setProposal(data)
       setSelectedProjectId(data.project_id || null)
+      if (data.project_id) setLinkToProject(true)
       setVersions(vr.data || [])
       setVersionCount(Array.isArray(vr.data) ? vr.data.length : 0)
     } catch (e) {
@@ -309,10 +310,12 @@ export default function ProposalBuilderPage() {
     try {
       setSaving(true)
       console.log('[handleInsertBlock] Sending to API:', updatedBlocks.length, 'blocks')
+      console.log('[handleInsertBlock] Sending to API:', updatedBlocks.length, 'blocks', { name: proposal.name, project_id: selectedProjectId })
       await apiClient.put(`/proposals-builder/proposals/${proposal.id}`, {
         name: proposal.name,
         blocks: updatedBlocks,
-        project_id: selectedProjectId || null
+        project_id: proposal.project_id || selectedProjectId || null,
+        srs_version: proposal.srs_version || null
       })
       console.log('[handleInsertBlock] API success')
       setSaved(true)
@@ -377,7 +380,8 @@ export default function ProposalBuilderPage() {
         await apiClient.put(`/proposals-builder/proposals/${proposal.id}`, {
           name: proposal.name,
           blocks: cleanBlocks,
-          project_id: selectedProjectId
+          project_id: proposal.project_id || selectedProjectId || null,
+          srs_version: proposal.srs_version || null
         })
         console.log('[handleAutoFill] API save success')
         setSaved(true)
@@ -453,9 +457,25 @@ export default function ProposalBuilderPage() {
         }
       }
 
+      console.log('[handleCreateProposal] DEBUG:', {
+        proposalName: proposalName.trim(),
+        selectedProjectId,
+        srsVersionsCount: srsVersions.length,
+        srsVersions: srsVersions.map(v => `${v.type} v${v.version}`),
+        selectedSrsIndex,
+        srsVer: srsVer ? `${srsVer.type} v${srsVer.version}` : null
+      })
+    console.log('[handleCreateProposal] DEBUG:', {
+      proposalName: proposalName.trim(),
+      selectedProjectId,
+      srsVersionsCount: srsVersions.length,
+      srsVersions: srsVersions.map(v => `${v.type} v${v.version}`),
+      selectedSrsIndex,
+      srsVer: srsVer ? `${srsVer.type} v${srsVer.version}` : null
+    })
       const payload = {
         name: proposalName.trim(),
-        project_id: linkToProject && selectedProjectId ? selectedProjectId : null,
+        project_id: selectedProjectId || null,
         srs_version: srsVer ? `${srsVer.type} v${srsVer.version}` : null,
         template_id: selectedTemplate?.id || null,
         blocks: initialBlocks
@@ -567,23 +587,23 @@ export default function ProposalBuilderPage() {
                 </div>
               </div>
 
-              {linkToProject && (
-                <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ color: '#94a3b8', fontSize: 11, display: 'block', marginBottom: 6, letterSpacing: 1 }}>PROJECT</label>
-                    <select value={selectedProjectId || ''} onChange={e => {
-                      if (projectLocked) return
-                      const pid = e.target.value ? parseInt(e.target.value) : null
-                      console.log('[STEP1] Project selected, id:', pid)
-                      setSelectedProjectId(pid)
-                      const proj = projects.find(p => p.id === pid)
-                      if (pid) logger.projectLinked(pid, proj?.name || 'unknown')
-                      fetchSrsVersions(pid)
-                    }} disabled={projectLocked} style={{ width: '100%', background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 8, padding: '10px 12px', fontSize: 14, cursor: projectLocked ? 'not-allowed' : 'pointer' }}>
-                      <option value="">— Select a project —</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  </div>
+              <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ color: '#94a3b8', fontSize: 11, display: 'block', marginBottom: 6, letterSpacing: 1 }}>PROJECT</label>
+                  <select value={selectedProjectId || ''} onChange={e => {
+                    if (projectLocked) return
+                    const pid = e.target.value ? parseInt(e.target.value) : null
+                    console.log('[STEP1] Project selected, id:', pid)
+                    setSelectedProjectId(pid)
+                    if (pid) setLinkToProject(true)
+                    const proj = projects.find(p => p.id === pid)
+                    if (pid) logger.projectLinked(pid, proj?.name || 'unknown')
+                    fetchSrsVersions(pid)
+                  }} disabled={projectLocked} style={{ width: '100%', background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 8, padding: '10px 12px', fontSize: 14, cursor: projectLocked ? 'not-allowed' : 'pointer' }}>
+                    <option value="">— Select a project (optional) —</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
 
                   {srsVersions.length > 0 && (
                     <div>
@@ -615,7 +635,7 @@ export default function ProposalBuilderPage() {
                     </div>
                   )}
                 </div>
-              )}
+              
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => goToStep(2)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '11px 28px', cursor: 'pointer', fontSize: 14, fontWeight: 'bold' }}>
@@ -644,7 +664,7 @@ export default function ProposalBuilderPage() {
 
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ color: '#94a3b8', fontSize: 11, display: 'block', marginBottom: 6, letterSpacing: 1 }}>PROJECT</label>
-                  {linkToProject && selectedProject ? (
+                  {selectedProjectId && selectedProject ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 14 }}>{selectedProject.name}</span>
                       {selectedSrs && (
@@ -697,32 +717,41 @@ export default function ProposalBuilderPage() {
               📦 SRS {proposal.srs_version}
             </span>
           )}
-          <select
-            value={selectedProjectId || ''}
-            onChange={async e => {
-              const newProjectId = e.target.value ? parseInt(e.target.value) : null
-              setSelectedProjectId(newProjectId)
-              try {
-                await apiClient.put(`/proposals-builder/proposals/${proposal.id}`, {
-                  name: proposal.name,
-                  blocks: (proposal.blocks || []).map(stripBlock),
-                  project_id: newProjectId
-                })
-                if (newProjectId) handleAutoFill()
-              } catch (err) { console.error('Failed to save project link:', err) }
-            }}
-            style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', borderRadius: 6, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
-          >
-            <option value="">🔗 No project</option>
-            {projects.map(p => <option key={p.id} value={p.id}>📦 {p.name}</option>)}
-          </select>
+          {proposal?.project_id ? (
+            <span style={{ background: '#0f172a', color: '#f1f5f9', borderRadius: 16, padding: '6px 14px', fontSize: 12, fontWeight: 'bold', marginRight: 4 }}>
+              📦 {projects.find(p => p.id === proposal.project_id)?.name || 'Linked Project'}
+            </span>
+          ) : (
+            <select
+              value={selectedProjectId || ''}
+              onChange={async e => {
+                const newProjectId = e.target.value ? parseInt(e.target.value) : null
+                setSelectedProjectId(newProjectId)
+                if (newProjectId) setLinkToProject(true)
+                try {
+                  await apiClient.put(`/proposals-builder/proposals/${proposal.id}`, {
+                    name: proposal.name || 'Untitled Proposal',
+                    blocks: (proposal.blocks || []).map(stripBlock),
+                    project_id: newProjectId,
+                    srs_version: proposal.srs_version || null
+                  })
+                  if (newProjectId) handleAutoFill()
+                } catch (err) { console.error('Failed to save project link:', err) }
+              }}
+              style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', borderRadius: 6, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
+            >
+              <option value="">🔗 No project</option>
+              {projects.map(p => <option key={p.id} value={p.id}>📦 {p.name}</option>)}
+            </select>
+          )}
 
 
           <button onClick={openVersionModal} style={{ background: '#334155', color: '#f1f5f9', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
             💾 Versions ({versionCount})
           </button>
-          <button onClick={() => window.open(`/api/proposals-pdf/${proposal?.id}/export-pdf`, '_blank')} title="Exports the last saved version (save first if you have unsaved changes)" style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
+          <button onClick={() => window.open(`/api/proposals-pdf/${proposal?.id}/export-pdf`, '_blank')} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
             📄 Export PDF
+            <span style={{ fontSize: 10, opacity: 0.75, marginLeft: 4 }}>(save version first)</span>
           </button>
           <button onClick={handleSaveVersion} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
             💾 Save Version
@@ -773,7 +802,8 @@ export default function ProposalBuilderPage() {
               apiClient.put(`/proposals-builder/proposals/${proposal.id}`, {
                 name: proposal.name,
                 blocks: updatedBlocks,
-                project_id: selectedProjectId
+                project_id: proposal.project_id || selectedProjectId || null,
+                srs_version: proposal.srs_version || null
               }).then(() => { console.log('[onBlockFillRequest] API success'); setSaved(true); setTimeout(() => setSaved(false), 2000) }).catch(e => console.error('[onBlockFillRequest] API err:', e))
             }).catch(e => console.error('[onBlockFillRequest] fetch err:', e))
           }}

@@ -105,7 +105,12 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
         await fetch(`${apiBase}/${proposalId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ name: initialData?.name || 'Untitled', blocks: cleanBlocks })
+          body: JSON.stringify({
+            name: initialData?.name || 'Untitled',
+            blocks: cleanBlocks,
+            project_id: initialData?.project_id || null,
+            srs_version: initialData?.srs_version || null
+          })
         })
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)

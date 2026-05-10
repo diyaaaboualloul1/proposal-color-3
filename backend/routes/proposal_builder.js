@@ -44,11 +44,13 @@ router.get("/proposals", authMiddleware, async (req, res) => {
 router.post("/proposals", authMiddleware, async (req, res) => {
   try {
     const { name, project_id, srs_version, template_id, blocks } = req.body;
+    console.log(`[PROPOSAL_CREATE] body=${JSON.stringify({name, project_id, srs_version, template_id, blocks_length: blocks?.length})}`);
     const result = await pool.query(
       `INSERT INTO builder_proposals (name, project_id, srs_version, template_id, blocks, created_by)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [name||"New Proposal", project_id, srs_version, template_id, JSON.stringify(blocks||[]), req.user.id]
     );
+    console.log(`[PROPOSAL_CREATE] inserted=${JSON.stringify(result.rows[0])}`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -70,6 +72,7 @@ router.get("/proposals/:id", authMiddleware, async (req, res) => {
 router.put("/proposals/:id", authMiddleware, async (req, res) => {
   try {
     const { name, blocks, status, template_id, project_id, srs_version } = req.body;
+    console.log(`[PROPOSAL_PUT] id=${req.params.id} name=${name} project_id=${project_id} srs_version=${srs_version} status=${status}`);
     const result = await pool.query(
       `UPDATE builder_proposals SET name=$1, blocks=$2, status=$3, template_id=$4, project_id=$5, srs_version=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
       [name, JSON.stringify(blocks||[]), status, template_id, project_id || null, srs_version || null, req.params.id]
@@ -181,6 +184,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { name, blocks, status, template_id, project_id, srs_version } = req.body;
+    console.log(`[PROPOSAL_PUT /:id] id=${req.params.id} name=${name} project_id=${project_id} srs_version=${srs_version}`);
     const result = await pool.query(
       `UPDATE builder_proposals SET name=$1, blocks=$2, status=$3, template_id=$4, project_id=$5, srs_version=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
       [name, JSON.stringify(blocks||[]), status, template_id, project_id || null, srs_version || null, req.params.id]
