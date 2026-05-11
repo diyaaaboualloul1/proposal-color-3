@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const fs = require('fs')
+const { logAction, logError, logDebug } = require('../utils/proposal_debug_logger')
 const path = require('path')
 const { Pool } = require('pg')
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib')
@@ -174,7 +175,18 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
     switch (block.type) {
       case 'cover': {
         drawCoverPage(page, fonts, block, embeddedBg)
-        y = margin
+        // Always start new page after cover so content has clean start
+        page = doc.addPage([pageWidth, pageHeight])
+        y = pageHeight - margin
+        if (pageCallback) pageCallback(page)
+        break
+      }
+      case 'pagebreak': {
+        page = doc.addPage([pageWidth, pageHeight])
+        y = pageHeight - margin
+        if (pageCallback) pageCallback(page)
+        // Add top margin when starting new content page
+        y -= 30
         break
       }
       case 'pagebreak': {
@@ -221,7 +233,12 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       case 'table': {
         const headers = block.content.headers || []
         const rows = block.content.rows || []
-        if (!headers.length) break
+        if (block.content.sectionTitle) {
+          newPageIfNeeded(margin + 50)
+          page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
+          y -= 24
+        }
+        if (!headers.length) { y -= 6; break }
         newPageIfNeeded(margin + 60)
         const colW = contentWidth / headers.length
         const rowH = 20
@@ -248,8 +265,10 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       case 'pricing': {
         const items = block.content.items || []
         newPageIfNeeded(margin + 50)
-        page.drawText('Investment', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
-        y -= 24
+        if (block.content.sectionTitle) {
+          page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
+          y -= 24
+        }
         for (const item of items) {
           newPageIfNeeded(margin + 20)
           page.drawText(item.label || '', { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth - 90 })
@@ -288,11 +307,30 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'scope': {
         const items = block.content.items || []
-        for (const item of items) {
-          newPageIfNeeded(margin + 20)
-          page.drawText(`• ${(item.label || '').slice(0, 100)}`, { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-          y -= 17
+        if (block.content.sectionTitle) {
+          newPageIfNeeded(margin + 50)
+          page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
+          y -= 24
         }
+        items.forEach((item) => {
+          const text = '• ' + (item.label || '')
+          const words = text.split(' ')
+          let line = ''
+          for (const word of words) {
+            const test = line + (line ? ' ' : '') + word
+            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
+              newPageIfNeeded(margin + 20)
+              page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+              y -= 16
+              line = word
+            } else { line = test }
+          }
+          if (line) {
+            newPageIfNeeded(margin + 20)
+            page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+            y -= 16
+          }
+        })
         y -= 6
         break
       }
@@ -369,11 +407,31 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'list': {
         const items = block.content.items || []
-        for (const item of items) {
-          newPageIfNeeded(margin + 20)
-          page.drawText(`• ${(item.label || item || '').slice(0, 100)}`, { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-          y -= 17
+        if (block.content.sectionTitle) {
+          newPageIfNeeded(margin + 50)
+          page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
+          y -= 24
         }
+        items.forEach((item, idx) => {
+          const prefix = block.content.ordered ? `${idx + 1}. ` : '• '
+          const text = prefix + (item.label || '')
+          const words = text.split(' ')
+          let line = ''
+          for (const word of words) {
+            const test = line + (line ? ' ' : '') + word
+            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
+              newPageIfNeeded(margin + 20)
+              page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+              y -= 16
+              line = word
+            } else { line = test }
+          }
+          if (line) {
+            newPageIfNeeded(margin + 20)
+            page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+            y -= 16
+          }
+        })
         y -= 6
         break
       }
@@ -401,6 +459,14 @@ router.get('/:id/export-pdf', async (req, res) => {
     const proposal = result.rows[0]
     const blocks  = typeof proposal.blocks === 'string' ? JSON.parse(proposal.blocks) : (proposal.blocks || [])
     if (blocks.length === 0) return res.status(400).json({ error: 'No blocks to export' })
+
+    logAction('PDF_EXPORT', `Starting PDF export for proposal id=${req.params.id}`, {
+      name: proposal.name,
+      blocks_count: blocks.length,
+      block_types: blocks.map(b => b.type),
+      project_id: proposal.project_id,
+      srs_version: proposal.srs_version
+    })
 
     const doc = await PDFDocument.create()
     doc.setTitle(proposal.name || 'Proposal')

@@ -57,43 +57,14 @@ export default function ProposalsPage() {
           <h1 style={{ color: '#f1f5f9', margin: 0, fontSize: 20 }}>Proposals</h1>
           <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>Visual proposal builder with drag-and-drop blocks</p>
         </div>
-        <button onClick={() => setShowNew(true)}
+        <button onClick={() => window.location.href = '/builder/new'}
           style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
           + New Proposal
         </button>
       </div>
 
-      {/* New Proposal Modal */}
-      {showNew && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#1e293b', borderRadius: 16, padding: 24, width: 400, border: '1px solid #334155' }}>
-            <h3 style={{ color: '#f1f5f9', marginTop: 0, marginBottom: 16 }}>New Proposal</h3>
-            <label style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 12 }}>
-              Proposal Name
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Czar Fragrances — Proposal v1"
-                style={{ display: 'block', width: '100%', marginTop: 4, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 8, padding: '10px', fontSize: 13, boxSizing: 'border-box' }} />
-            </label>
-            <label style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 12 }}>
-              Project (optional — will be locked in builder)
-              <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))}
-                style={{ display: 'block', width: '100%', marginTop: 4, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 8, padding: '10px', fontSize: 13, boxSizing: 'border-box' }}>
-                <option value="">— No project (freeform) —</option>
-                {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </label>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setShowNew(false)} style={{ color: '#94a3b8', background: 'none', border: '1px solid #334155', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleCreate} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontWeight: 'bold' }}>
-                Create & Open →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Proposals Grid */}
-      {builderProposals.length === 0 && !showNew ? (
+      {builderProposals.length === 0 ? (
         <div style={{ color: '#64748b', textAlign: 'center', padding: 60 }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
           No proposals yet. Click "New Proposal" to start.

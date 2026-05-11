@@ -250,13 +250,21 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
                 <button key={lvl} onClick={() => updateBlock(block.id, { ...block.content, level: lvl })} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 'bold', background: block.content.level === lvl ? '#7c3aed' : '#334155', color: '#fff' }}>H{lvl}</button>
               ))}
             </div>
-            <input value={block.content.text || ''} onChange={e => updateBlock(block.id, { ...block.content, text: e.target.value })} placeholder="Heading text..." style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', color: '#f1f5f9', fontSize: block.content.level === 1 ? 24 : block.content.level === 2 ? 20 : 16, fontWeight: 'bold' }} />
+            <input value={block.content.text || ''} onChange={e => updateBlock(block.id, { ...block.content, text: e.target.value })} placeholder="Heading text..." style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', color: '#7c3aed', fontSize: block.content.level === 1 ? 24 : block.content.level === 2 ? 20 : 16, fontWeight: 'bold' }} />
           </div>
         )
       case 'table':
         return (
           <div style={wrapStyle}>
-            <label style={labelStyle}>📊 Table</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ color: '#7c3aed', fontSize: 14 }}>📊</span>
+              <input
+                value={block.content.sectionTitle || ''}
+                onChange={e => updateBlock(block.id, { ...block.content, sectionTitle: e.target.value })}
+                placeholder="Table title..."
+                style={{ background: 'transparent', border: 'none', color: '#7c3aed', fontSize: 13, fontWeight: 'bold', width: '100%' }}
+              />
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>{(block.content.headers || []).map((h, i) => <td key={i} style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#94a3b8' }}><input value={h} onChange={e => { const hs = [...block.content.headers]; hs[i] = e.target.value; updateBlock(block.id, { ...block.content, headers: hs }); }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', width: '100%' }} /></td>)}</tr>
@@ -300,7 +308,14 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
       case 'pricing':
         return (
           <div style={wrapStyle}>
-            <label style={labelStyle}>💰 Pricing Table</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ color: '#7c3aed', fontSize: 16 }}>💰</span>
+              <input
+                value={block.content.sectionTitle || 'Financial'}
+                onChange={e => updateBlock(block.id, { ...block.content, sectionTitle: e.target.value })}
+                style={{ background: 'transparent', border: 'none', color: '#f1f5f9', fontSize: 15, fontWeight: 'bold', width: '100%' }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               {['KWD', 'SAR', 'USD', 'EUR'].map(c => (
                 <button key={c} onClick={() => updateBlock(block.id, { ...block.content, currency: c })} style={{ padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 11, background: block.content.currency === c ? '#7c3aed' : '#334155', color: '#fff' }}>{c}</button>
@@ -332,10 +347,16 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
           </div>
         )
       case 'scope':
-        console.log('[scope block] content:', JSON.stringify(block.content).slice(0, 200))
         return (
           <div style={wrapStyle}>
-            <label style={labelStyle}>📦 Scope Items</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ color: '#7c3aed', fontSize: 14 }}>📦</span>
+              <input
+                value={block.content.sectionTitle || 'Features'}
+                onChange={e => updateBlock(block.id, { ...block.content, sectionTitle: e.target.value })}
+                style={{ background: 'transparent', border: 'none', color: '#f1f5f9', fontSize: 13, fontWeight: 'bold', width: '100%' }}
+              />
+            </div>
             {(block.content.items || []).map((item, i) => (
               <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
                 <span style={{ color: '#7c3aed', fontSize: 12 }}>•</span>
@@ -348,7 +369,7 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
         )
       case 'overview':
         return (
-          <div style={wrapStyle}>
+          <div style={{ ...wrapStyle, marginTop: 20 }}>
             <label style={labelStyle}>📄 Overview</label>
             <textarea value={block.content.text || ''} onChange={e => updateBlock(block.id, { ...block.content, text: e.target.value })} rows={4} placeholder="Project overview text..." style={{ display: 'block', width: '100%', background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 6, padding: '8px', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
@@ -417,7 +438,15 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
       case 'list':
         return (
           <div style={wrapStyle}>
-            <label style={labelStyle}>📋 List</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ color: '#7c3aed', fontSize: 14 }}>📋</span>
+              <input
+                value={block.content.sectionTitle || ''}
+                onChange={e => updateBlock(block.id, { ...block.content, sectionTitle: e.target.value })}
+                placeholder="List title..."
+                style={{ background: 'transparent', border: 'none', color: '#7c3aed', fontSize: 13, fontWeight: 'bold', width: '100%' }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <button onClick={() => updateBlock(block.id, { ...block.content, ordered: false })} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, background: !block.content.ordered ? '#7c3aed' : '#334155', color: '#fff' }}>Bullet</button>
               <button onClick={() => updateBlock(block.id, { ...block.content, ordered: true })} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, background: block.content.ordered ? '#7c3aed' : '#334155', color: '#fff' }}>Numbered</button>

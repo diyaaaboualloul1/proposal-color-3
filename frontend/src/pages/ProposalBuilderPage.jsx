@@ -229,7 +229,7 @@ export default function ProposalBuilderPage() {
     apiClient.get('/proposals-builder/templates').then(r => {
       const templates = Array.isArray(r.data) ? r.data : r.data.templates || []
       setTemplateCards(templates)
-      if (templates.length > 0) setSelectedTemplate(templates[0])
+      // templates loaded — user picks manually in wizard
     }).catch(() => {})
     apiClient.get('/projects').then(r => setProjects(Array.isArray(r.data) ? r.data : r.data.projects || [])).catch(() => {})
   }, [id])
@@ -416,17 +416,13 @@ export default function ProposalBuilderPage() {
         const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
         initialBlocks = [
           { id: `cover_${Date.now()}`, type: 'cover', content: { title: 'Project Proposal', subtitle: 'Proposal', client: '', date: today, preparedBy: 'Fifty Studios Holding Company' } },
-          { id: `heading_${Date.now()}_1`, type: 'heading', content: { text: 'Overview', level: 2 } },
-          { id: `text_${Date.now()}`, type: 'text', content: { html: '<p>This proposal outlines the project scope, technical approach, timeline, and investment required to deliver the solution.</p>' } },
-          { id: `heading_${Date.now()}_2`, type: 'heading', content: { text: 'Scope of Work', level: 2 } },
-          { id: `scope_${Date.now()}`, type: 'scope', content: { items: [{ label: 'Discovery & Requirements', checked: false }, { label: 'UI/UX Design', checked: false }, { label: 'Frontend Development', checked: false }, { label: 'Backend Development', checked: false }, { label: 'Testing & QA', checked: false }, { label: 'Deployment & Launch', checked: false }], ordered: false, source: 'template' } },
-          { id: `heading_${Date.now()}_3`, type: 'heading', content: { text: 'Tech Stack', level: 2 } },
-          { id: `techstack_${Date.now()}`, type: 'techstack', content: { items: [], source: 'template' } },
-          { id: `heading_${Date.now()}_4`, type: 'heading', content: { text: 'Timeline', level: 2 } },
-          { id: `timeline_${Date.now()}`, type: 'timeline', content: { phases: [{ name: 'Phase 1: Discovery', duration: '' }, { name: 'Phase 2: Design', duration: '' }, { name: 'Phase 3: Development', duration: '' }, { name: 'Phase 4: Testing & Launch', duration: '' }] } },
-          { id: `heading_${Date.now()}_5`, type: 'heading', content: { text: 'Investment', level: 2 } },
-          { id: `pricing_${Date.now()}`, type: 'pricing', content: { currency: 'KWD', items: [] } },
-          { id: `callout_${Date.now()}`, type: 'callout', content: { text: 'This proposal is valid for 30 days from the date above.', bgColor: '#7c3aed', textColor: '#ffffff' } },
+          { id: `overview_${Date.now()}`, type: 'overview', content: { text: 'Add project overview here...', sectionTitle: '' } },
+          { id: `scope_${Date.now()}`, type: 'scope', content: { items: [], ordered: false, source: 'template', sectionTitle: 'Features' } },
+          { id: `table_${Date.now()}`, type: 'table', content: { sectionTitle: 'Timeline', headers: ['Phase', 'Duration'], rows: [['', '']] } },
+          { id: `pricing_${Date.now()}`, type: 'pricing', content: { currency: 'KWD', items: [{label: 'Original Project Cost', price: 0}, {label: 'Discounted Price', price: 0}, {label: 'Total', price: 0}], sectionTitle: 'Financial' } },
+          { id: `list_${Date.now()}_1`, type: 'list', content: { sectionTitle: 'Payment Terms:', items: [{label: '50% of the total upon contract signing', checked: false}, {label: '50% of the total upon final delivery and go-live', checked: false}], ordered: false, source: 'template' } },
+          { id: `list_${Date.now()}_2`, type: 'list', content: { sectionTitle: 'Maintenance & Hosting:', items: [{label: 'First Year: Included from the total cost', checked: false}, {label: 'Second Year Renewal: 600 KWD (includes hosting, maintenance, and technical support)', checked: false}], ordered: false, source: 'template' } },
+          { id: `list_${Date.now()}_3`, type: 'list', content: { sectionTitle: 'Notes & Conditions:', items: [{label: 'The client shall provide all branding materials (logo, color palette, and content).', checked: false}, {label: 'Hosting and maintenance include standard uptime, monitoring, and technical support. Any data loss, downtime, or force majeure incidents are outside the service scope.', checked: false}, {label: 'Any additional feature requests beyond this scope will be quoted separately.', checked: false}, {label: 'Delays caused by third parties (e.g., payment provider, content submission) are not part of the project timeline.', checked: false}], ordered: true, source: 'template' } },
         ]
       }
       console.log('[handleCreateProposal] template blocks:', initialBlocks.length, 'srsVer:', srsVer?.version)
@@ -439,21 +435,29 @@ export default function ProposalBuilderPage() {
         if (srsData) {
           const versionMeta = { srsVersionId: srsVer?.id, srsVersionLabel: srsVer ? `${srsVer.type} v${srsVer.version}` : null }
           const srsBlocks = []
-          if (srsData.scope.length) {
-            srsBlocks.push({ id: `block_${Date.now()}_srs_scope`, type: 'scope', content: { items: srsData.scope.map(t => ({ label: t, checked: false })), ordered: false, source: 'srs', projectId: selectedProjectId, ...versionMeta } })
-          }
-          if (srsData.techStack.length) {
-            srsBlocks.push({ id: `block_${Date.now()}_srs_tech`, type: 'techstack', content: { items: srsData.techStack.map(t => ({ label: t, checked: false })), source: 'srs', projectId: selectedProjectId, ...versionMeta } })
-          }
+          // Overview block from SRS
           if (srsData.overview) {
             srsBlocks.push({ id: `block_${Date.now()}_srs_ov`, type: 'overview', content: { text: srsData.overview, source: 'srs', projectId: selectedProjectId, ...versionMeta } })
           }
+          // Scope block from SRS (Features)
+          if (srsData.scope.length) {
+            srsBlocks.push({ id: `block_${Date.now()}_srs_scope`, type: 'scope', content: { items: srsData.scope.map(t => ({ label: t, checked: false })), ordered: false, source: 'srs', sectionTitle: 'Features', projectId: selectedProjectId, ...versionMeta } })
+          }
+          // Timeline block from SRS
           if (srsData.timeline.length) {
             srsBlocks.push({ id: `block_${Date.now()}_srs_tl`, type: 'timeline', content: { phases: srsData.timeline, projectId: selectedProjectId, ...versionMeta } })
           }
+          // Financial section: table (Timeline) + pricing + 3 lists
+          const financialBlocks = [
+            { id: `table_${Date.now()}`, type: 'table', content: { sectionTitle: 'Timeline', headers: ['Phase', 'Duration'], rows: [['', '']] } },
+            { id: `pricing_${Date.now()}`, type: 'pricing', content: { currency: 'KWD', items: [{label: 'Original Project Cost', price: 0}, {label: 'Discounted Price', price: 0}, {label: 'Total', price: 0}], sectionTitle: 'Financial' } },
+            { id: `list_${Date.now()}_1`, type: 'list', content: { sectionTitle: 'Payment Terms:', items: [{label: '50% of the total upon contract signing', checked: false}, {label: '50% of the total upon final delivery and go-live', checked: false}], ordered: false, source: 'template' } },
+            { id: `list_${Date.now()}_2`, type: 'list', content: { sectionTitle: 'Maintenance & Hosting:', items: [{label: 'First Year: Included from the total cost', checked: false}, {label: 'Second Year Renewal: 600 KWD (includes hosting, maintenance, and technical support)', checked: false}], ordered: false, source: 'template' } },
+            { id: `list_${Date.now()}_3`, type: 'list', content: { sectionTitle: 'Notes & Conditions:', items: [{label: 'The client shall provide all branding materials (logo, color palette, and content).', checked: false}, {label: 'Hosting and maintenance include standard uptime, monitoring, and technical support. Any data loss, downtime, or force majeure incidents are outside the service scope.', checked: false}, {label: 'Any additional feature requests beyond this scope will be quoted separately.', checked: false}, {label: 'Delays caused by third parties (e.g., payment provider, content submission) are not part of the project timeline.', checked: false}], ordered: true, source: 'template' } },
+          ]
           console.log('[handleCreateProposal] SRS blocks created:', srsBlocks.length)
-          // Prepend SRS blocks before template blocks
-          initialBlocks = [...srsBlocks, ...initialBlocks]
+          // Keep cover, add SRS blocks (no techstack), then Financial + lists
+          initialBlocks = [initialBlocks[0], ...srsBlocks, ...financialBlocks]
         }
       }
 
@@ -547,23 +551,7 @@ export default function ProposalBuilderPage() {
           {wizardStep === 1 && (
             <div>
               <h2 style={{ marginBottom: 6, fontSize: 20 }}>Create New Proposal</h2>
-              <p style={{ color: '#64748b', fontSize: 13, marginTop: 0, marginBottom: 28 }}>Start from scratch or link to an existing SRS project.</p>
-
-              <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: projectLocked ? 'default' : 'pointer' }}>
-                  <input type="checkbox" checked={linkToProject} disabled={projectLocked} onChange={e => {
-                    if (projectLocked) return
-                    setLinkToProject(e.target.checked)
-                    if (!e.target.checked) { 
-                      setSelectedProjectId(null); setSrsVersions([])
-                      logger.projectUnlinked()
-                    }
-                    console.log('[STEP1] linkToProject:', e.target.checked)
-                  }} style={{ width: 18, height: 18, accentColor: '#7c3aed', cursor: projectLocked ? 'not-allowed' : 'pointer' }} />
-                  <span style={{ fontSize: 14 }}>Link to an existing SRS project</span>
-                </label>
-                <p style={{ color: '#94a3b8', fontSize: 12, margin: '8px 0 0 30px' }}>Freeform proposal (no project) — default</p>
-              </div>
+              <p style={{ color: '#64748b', fontSize: 13, marginTop: 0, marginBottom: 28 }}>Choose a template and optionally link a project.</p>
 
               {/* TEMPLATE SELECTOR */}
               <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, marginBottom: 20 }}>

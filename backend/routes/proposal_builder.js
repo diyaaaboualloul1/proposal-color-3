@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
+const { logAction, logError, logDebug } = require('../utils/proposal_debug_logger');
 
 const pool = new Pool({
   host: process.env.PGHOST || "127.0.0.1",
@@ -44,7 +45,7 @@ router.get("/proposals", authMiddleware, async (req, res) => {
 router.post("/proposals", authMiddleware, async (req, res) => {
   try {
     const { name, project_id, srs_version, template_id, blocks } = req.body;
-    console.log(`[PROPOSAL_CREATE] body=${JSON.stringify({name, project_id, srs_version, template_id, blocks_length: blocks?.length})}`);
+    logAction('PROPOSAL_CREATE', `Creating proposal`, { name, project_id, srs_version, template_id, blocks_count: blocks?.length, user_id: req.user.id })
     const result = await pool.query(
       `INSERT INTO builder_proposals (name, project_id, srs_version, template_id, blocks, created_by)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
@@ -62,6 +63,7 @@ router.get("/proposals/:id", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM builder_proposals WHERE id=$1", [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: "Not found" });
+    logAction('PROPOSAL_GET', `Reading proposal id=${req.params.id}`, { blocks_count: result.rows[0]?.blocks?.length, project_id: result.rows[0]?.project_id, srs_version: result.rows[0]?.srs_version })
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -73,6 +75,7 @@ router.put("/proposals/:id", authMiddleware, async (req, res) => {
   try {
     const { name, blocks, status, template_id, project_id, srs_version } = req.body;
     console.log(`[PROPOSAL_PUT] id=${req.params.id} name=${name} project_id=${project_id} srs_version=${srs_version} status=${status}`);
+    logAction('PROPOSAL_PUT', `Updating proposal id=${req.params.id}`, { name, blocks_count: blocks?.length, project_id, srs_version, status, user_id: req.user.id });
     const result = await pool.query(
       `UPDATE builder_proposals SET name=$1, blocks=$2, status=$3, template_id=$4, project_id=$5, srs_version=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
       [name, JSON.stringify(blocks||[]), status, template_id, project_id || null, srs_version || null, req.params.id]
@@ -185,6 +188,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { name, blocks, status, template_id, project_id, srs_version } = req.body;
     console.log(`[PROPOSAL_PUT /:id] id=${req.params.id} name=${name} project_id=${project_id} srs_version=${srs_version}`);
+    logAction('PROPOSAL_PUT', `Updating proposal id=${req.params.id}`, { name, blocks_count: blocks?.length, project_id, srs_version, status, user_id: req.user.id });
     const result = await pool.query(
       `UPDATE builder_proposals SET name=$1, blocks=$2, status=$3, template_id=$4, project_id=$5, srs_version=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
       [name, JSON.stringify(blocks||[]), status, template_id, project_id || null, srs_version || null, req.params.id]
