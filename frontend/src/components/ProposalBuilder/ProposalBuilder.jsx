@@ -238,6 +238,17 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
         return (
           <div style={wrapStyle}>
             <label style={labelStyle}>📝 Text Block</label>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
+
             <TiptapEditor content={block.content.html} onChange={html => updateBlock(block.id, { ...block.content, html })} placeholder="Type something..." />
           </div>
         )
@@ -245,6 +256,17 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
         return (
           <div style={wrapStyle}>
             <label style={labelStyle}>🔤 Heading</label>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               {[1, 2, 3].map(lvl => (
                 <button key={lvl} onClick={() => updateBlock(block.id, { ...block.content, level: lvl })} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 'bold', background: block.content.level === lvl ? '#7c3aed' : '#334155', color: '#fff' }}>H{lvl}</button>
@@ -265,6 +287,17 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
                 style={{ background: 'transparent', border: 'none', color: '#7c3aed', fontSize: 13, fontWeight: 'bold', width: '100%' }}
               />
             </div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
+
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>{(block.content.headers || []).map((h, i) => <td key={i} style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#94a3b8' }}><input value={h} onChange={e => { const hs = [...block.content.headers]; hs[i] = e.target.value; updateBlock(block.id, { ...block.content, headers: hs }); }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', width: '100%' }} /></td>)}</tr>
@@ -321,6 +354,17 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
                 <button key={c} onClick={() => updateBlock(block.id, { ...block.content, currency: c })} style={{ padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 11, background: block.content.currency === c ? '#7c3aed' : '#334155', color: '#fff' }}>{c}</button>
               ))}
             </div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
+
             {(block.content.items || []).map((item, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
                 <input value={item.label} onChange={e => { const items = [...block.content.items]; items[i] = { ...items[i], label: e.target.value }; updateBlock(block.id, { ...block.content, items }); }} placeholder="Item" style={{ flex: 2, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 6, padding: '6px 8px', fontSize: 13 }} />
@@ -365,12 +409,33 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
               </div>
             ))}
             <button onClick={() => updateBlock(block.id, { ...block.content, items: [...(block.content.items || []), { label: '' }] })} style={{ color: '#7c3aed', background: 'none', border: '1px dashed #7c3aed', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}>+ Add Scope Item</button>
+            <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
           </div>
         )
       case 'overview':
         return (
           <div style={{ ...wrapStyle, marginTop: 20 }}>
             <label style={labelStyle}>📄 Overview</label>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
+
             <textarea value={block.content.text || ''} onChange={e => updateBlock(block.id, { ...block.content, text: e.target.value })} rows={4} placeholder="Project overview text..." style={{ display: 'block', width: '100%', background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 6, padding: '8px', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
         )
@@ -378,6 +443,17 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
         return (
           <div style={wrapStyle}>
             <label style={labelStyle}>🛠 Tech Stack</label>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
+
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {(block.content.items || []).map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#0f172a', border: '1px solid #334155', borderRadius: 16, padding: '4px 10px', fontSize: 12, color: '#f1f5f9' }}>
@@ -459,6 +535,16 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
               </div>
             ))}
             <button onClick={() => updateBlock(block.id, { ...block.content, items: [...(block.content.items || []), { label: '', checked: false }] })} style={{ color: '#7c3aed', background: 'none', border: '1px dashed #7c3aed', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}>+ Add Item</button>
+            <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↑ Margin</span>
+                <input type='number' value={parseInt(block.content.marginTop) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginTop: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#94a3b8', fontSize: 10 }}>↓ Margin</span>
+                <input type='number' value={parseInt(block.content.marginBottom) || 0} onChange={e => updateBlock(block.id, { ...block.content, marginBottom: e.target.value + 'px' })} placeholder='0' style={{ width: 44, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '2px 6px', fontSize: 11 }} />
+              </div>
+            </div>
           </div>
         )
       case 'columns':

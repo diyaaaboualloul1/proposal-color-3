@@ -196,6 +196,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         break
       }
       case 'text': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.html) {
           const plain = block.content.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
           const words = plain.split(' ')
@@ -228,11 +229,12 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           size--
         page.drawText(rawText, { x: margin, y, size, font: helvB, color: DARK, width: contentWidth })
         y -= size + 12
-        break
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
       }
       case 'table': {
         const headers = block.content.headers || []
         const rows = block.content.rows || []
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.sectionTitle) {
           newPageIfNeeded(margin + 50)
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -260,10 +262,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= rowH
         }
         y -= 12
-        break
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
       }
       case 'pricing': {
         const items = block.content.items || []
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         newPageIfNeeded(margin + 50)
         if (block.content.sectionTitle) {
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -276,6 +279,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= 20
         }
         y -= 12
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'timeline': {
@@ -307,6 +311,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'scope': {
         const items = block.content.items || []
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.sectionTitle) {
           newPageIfNeeded(margin + 50)
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -332,7 +337,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           }
         })
         y -= 6
-        break
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
       }
       case 'techstack': {
         const items = block.content.items || []
@@ -351,6 +356,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         const text = block.content.text || block.content.html || ''
         const plain = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
         if (plain) {
+          if (block.content.marginTop) { const mt = parseInt(block.content.marginTop) || 0; y -= mt }
           newPageIfNeeded(margin + 50)
           page.drawText('Overview', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
           y -= 24
@@ -371,7 +377,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
             page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
             y -= 16
           }
-          y -= 14
+          if (block.content.marginBottom) { const mb = parseInt(block.content.marginBottom) || 0; y -= mb }
         }
         break
       }
@@ -407,6 +413,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'list': {
         const items = block.content.items || []
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.sectionTitle) {
           newPageIfNeeded(margin + 50)
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -433,7 +440,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           }
         })
         y -= 6
-        break
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
       }
       case 'divider': {
         const col = hexToRgb(block.content.color)
