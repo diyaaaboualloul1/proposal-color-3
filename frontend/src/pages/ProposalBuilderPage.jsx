@@ -190,6 +190,7 @@ export default function ProposalBuilderPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [versions, setVersions] = useState([])
   const [versionCount, setVersionCount] = useState(0)
   const [showVersions, setShowVersions] = useState(false)
@@ -737,9 +738,33 @@ export default function ProposalBuilderPage() {
           <button onClick={openVersionModal} style={{ background: '#334155', color: '#f1f5f9', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
             💾 Versions ({versionCount})
           </button>
-          <button onClick={() => window.open(`/api/proposals-pdf/${proposal?.id}/export-pdf`, '_blank')} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
-            📄 Export PDF
-            <span style={{ fontSize: 10, opacity: 0.75, marginLeft: 4 }}>(save version first)</span>
+          <button
+            onClick={async () => {
+              if (isExporting || !proposal?.id) return
+              setIsExporting(true)
+              try {
+                const res = await fetch(`/api/proposals-pdf/${proposal.id}/export-pdf`)
+                if (!res.ok) throw new Error('Export failed')
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = (proposal.name || 'Proposal').replace(/[^a-zA-Z0-9 ]/g, '') + '.pdf'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                setTimeout(() => URL.revokeObjectURL(url), 10000)
+              } catch (e) {
+                console.error('PDF export error:', e)
+                alert('PDF export failed. Please try again.')
+              } finally {
+                setIsExporting(false)
+              }
+            }}
+            disabled={isExporting || !proposal?.id}
+            style={{ background: isExporting ? '#047857' : '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: isExporting ? 'wait' : 'pointer', fontSize: 13 }}
+          >
+            {isExporting ? '⏳ Generating...' : '📄 Export PDF'}
           </button>
           <button onClick={handleSaveVersion} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>
             💾 Save Version

@@ -1,7 +1,17 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { Color } from '@tiptap/extension-color'
 import { useEffect } from 'react'
+
+const COLOR_PRESETS = [
+  { label: 'Red', value: '#ef4444' },
+  { label: 'Green', value: '#22c55e' },
+  { label: 'Orange', value: '#f97316' },
+  { label: 'Grey', value: '#94a3b8' },
+  { label: 'Yellow', value: '#eab308' },
+]
 
 export default function TiptapEditor({ content, onChange, placeholder = 'Start typing...' }) {
   const editor = useEditor({
@@ -10,6 +20,8 @@ export default function TiptapEditor({ content, onChange, placeholder = 'Start t
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({ placeholder }),
+      TextStyle,
+      Color,
     ],
     content: content || '',
     onUpdate: ({ editor }) => {
@@ -84,6 +96,23 @@ export default function TiptapEditor({ content, onChange, placeholder = 'Start t
           className="px-2 py-1 rounded text-xs bg-slate-700 text-slate-200 hover:bg-slate-600">
           —
         </button>
+        <span className="w-px h-5 bg-slate-600 mx-1" />
+        {/* Color buttons */}
+        {COLOR_PRESETS.map(color => (
+          <button
+            key={color.value}
+            type="button"
+            title={`Color: ${color.label}`}
+                        onClick={() => { if (editor.state.selection.from !== editor.state.selection.to) { editor.chain().focus().setColor(color.value).run() } else { editor.chain().setColor(color.value).run() } }}
+            style={{ background: color.value, color: '#fff', minWidth: 24, height: 24, borderRadius: 4, border: editor.isActive('textStyle', { color: color.value }) ? '2px solid white' : '2px solid transparent', fontSize: 11, fontWeight: 'bold', padding: '0 4px' }}
+          >
+            A
+          </button>
+        ))}
+        <button type="button" title="Clear color"             onClick={() => { if (editor.state.selection.from !== editor.state.selection.to) { editor.chain().focus().unsetColor().run() } else { editor.chain().unsetColor().run() } }}
+          className="px-1 py-1 rounded text-xs bg-slate-700 text-slate-200 hover:bg-slate-600" style={{ fontSize: 10 }}>
+          ╳
+        </button>
       </div>
       {/* Editor */}
       <div className="bg-slate-900 rounded-b-lg border border-t-0 border-slate-600">
@@ -100,6 +129,7 @@ export default function TiptapEditor({ content, onChange, placeholder = 'Start t
         .ProseMirror ol { list-style: decimal; padding-left: 1.5rem; color: #e2e8f0; }
         .ProseMirror blockquote { border-left: 3px solid #7c3aed; padding-left: 1rem; color: #94a3b8; font-style: italic; }
         .ProseMirror code { background: #334155; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.875rem; }
+        .ProseMirror span[style*="color"] { color: inherit; }
       `}</style>
     </div>
   )

@@ -1,6 +1,135 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { BLOCK_TYPES } from './BlockPalette'
 import TiptapEditor from './TiptapEditor'
+import MiniTiptapEditor from './MiniTiptapEditor'
+
+const COLOR_PRESETS = [
+  { label: 'Red',    value: '#ef4444' },
+  { label: 'Green',  value: '#22c55e' },
+  { label: 'Orange', value: '#f97316' },
+  { label: 'Grey',   value: '#94a3b8' },
+  { label: 'Yellow', value: '#eab308' },
+]
+
+function RichTextInput({ value, onChange, style = {}, placeholder = '...' }) {
+  const ref = useRef(null)
+  const [showToolbar, setShowToolbar] = useState(false)
+  const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 })
+  const toolbarRef = useRef(null)
+  const isMouseDownOnToolbar = useRef(false)
+
+  const initialHtml = (typeof value === 'string' && value.includes('<span')) ? value : (value || '')
+
+  const skipNextReset = useRef(false)
+
+  useEffect(() => {
+    if (!ref.current) return
+    if (skipNextReset.current) {
+      skipNextReset.current = false
+      return
+    }
+    const incoming = value || ''
+    if (incoming !== ref.current.innerHTML) {
+      ref.current.innerHTML = incoming
+    }
+  }, [value])
+
+  useEffect(() => {
+    function onMouseUp() {
+      if (isMouseDownOnToolbar.current) return
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) { setShowToolbar(false); return }
+      const range = sel.getRangeAt(0)
+      if (!ref.current?.contains(range.commonAncestorContainer)) { setShowToolbar(false); return }
+      const rect = range.getBoundingClientRect()
+      const parentRect = ref.current.getBoundingClientRect()
+      setToolbarPos({ top: rect.top - parentRect.top - 36, left: Math.max(0, rect.left - parentRect.left) })
+      setShowToolbar(true)
+    }
+    document.addEventListener('mouseup', onMouseUp)
+    return () => document.removeEventListener('mouseup', onMouseUp)
+  }, [])
+
+  const selRef = useRef(null)
+
+  function applyColor(color) {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    if (range.collapsed) return
+    const span = document.createElement('span')
+    span.style.color = color
+    span.appendChild(range.extractContents())
+    range.insertNode(span)
+    range.setStartAfter(span)
+    range.setEndAfter(span)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    setShowToolbar(false)
+    skipNextReset.current = true
+    setTimeout(() => {
+      if (ref.current) onChange(ref.current.innerHTML)
+      skipNextReset.current = false
+    }, 0)
+  }
+
+  function clearColor() {
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    if (range.collapsed) return
+    const node = range.commonAncestorContainer
+    const colorSpan = node.nodeType === Node.TEXT_NODE ? node.parentElement : node
+    if (colorSpan && colorSpan.style?.color) {
+      const text = document.createTextNode(colorSpan.textContent)
+      colorSpan.parentNode.replaceChild(text, colorSpan)
+    }
+    setShowToolbar(false)
+    skipNextReset.current = true
+    setTimeout(() => {
+      if (ref.current) onChange(ref.current.innerHTML)
+      skipNextReset.current = false
+    }, 0)
+  }
+
+  function handleBlur(e) {
+    if (toolbarRef.current && toolbarRef.current.contains(e.relatedTarget)) return
+    if (ref.current) onChange(ref.current.innerHTML)
+    setShowToolbar(false)
+  }
+
+  const baseStyle = { flex: 1, background: '#0f172a', color: style.color || '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '4px 8px', fontSize: 13, minHeight: 28, cursor: 'text', lineHeight: '1.4', wordBreak: 'break-word', outline: 'none', ...style }
+
+  return (
+    <div style={{ position: 'relative', display: 'flex', flex: 1 }}>
+      <div ref={ref} contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{ __html: initialHtml }} style={baseStyle} onBlur={handleBlur} />
+      {showToolbar && (
+        <div
+          ref={toolbarRef}
+          onMouseDown={() => { isMouseDownOnToolbar.current = true }}
+          onMouseUp={() => { isMouseDownOnToolbar.current = false }}
+          style={{ position: 'absolute', top: toolbarPos.top, left: toolbarPos.left, zIndex: 100, display: 'flex', gap: 3, background: '#1e293b', border: '1px solid #334155', borderRadius: 6, padding: '4px 6px', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}
+        >
+          {COLOR_PRESETS.map(c => (
+            <button
+              key={c.value}
+              onMouseDown={e => { e.preventDefault() }}
+              onClick={() => applyColor(c.value)}
+              style={{ width: 26, height: 22, borderRadius: 4, background: c.value, color: '#fff', border: '2px solid transparent', fontSize: 11, fontWeight: 'bold', cursor: 'pointer', padding: 0 }}
+              title={c.label}
+            >A</button>
+          ))}
+          <button
+            onMouseDown={e => { e.preventDefault() }}
+            onClick={() => clearColor()}
+            style={{ height: 22, borderRadius: 4, background: '#334155', color: '#94a3b8', border: 'none', fontSize: 10, cursor: 'pointer', padding: '0 4px' }}
+            title="Clear color"
+          >╳</button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const DEFAULT_CONTENT = {
   cover: { title: '', subtitle: 'Proposal', client: '', date: '', preparedBy: 'Fifty Studios Holding Company' },
@@ -272,6 +401,12 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
                 <button key={lvl} onClick={() => updateBlock(block.id, { ...block.content, level: lvl })} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 'bold', background: block.content.level === lvl ? '#7c3aed' : '#334155', color: '#fff' }}>H{lvl}</button>
               ))}
             </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              {[{label:'Red',value:'#ef4444'},{label:'Green',value:'#22c55e'},{label:'Orange',value:'#f97316'},{label:'Grey',value:'#94a3b8'},{label:'Yellow',value:'#eab308'}].map(c => (
+                <button key={c.value} onClick={() => updateBlock(block.id, { ...block.content, textColor: c.value })} style={{ width: 28, height: 24, borderRadius: 4, background: c.value, color: '#fff', border: block.content.textColor === c.value ? '2px solid white' : '2px solid transparent', fontSize: 10, fontWeight: 'bold', cursor: 'pointer' }}>A</button>
+              ))}
+              <button onClick={() => updateBlock(block.id, { ...block.content, textColor: undefined })} style={{ padding: '0 6px', height: 24, borderRadius: 4, background: '#334155', color: '#94a3b8', fontSize: 10, border: 'none', cursor: 'pointer' }}>╳</button>
+            </div>
             <input value={block.content.text || ''} onChange={e => updateBlock(block.id, { ...block.content, text: e.target.value })} placeholder="Heading text..." style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', color: '#7c3aed', fontSize: block.content.level === 1 ? 24 : block.content.level === 2 ? 20 : 16, fontWeight: 'bold' }} />
           </div>
         )
@@ -300,11 +435,20 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr>{(block.content.headers || []).map((h, i) => <td key={i} style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#94a3b8' }}><input value={h} onChange={e => { const hs = [...block.content.headers]; hs[i] = e.target.value; updateBlock(block.id, { ...block.content, headers: hs }); }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', width: '100%' }} /></td>)}</tr>
+                <tr>{(block.content.headers || []).map((h, i) => <td key={i} style={{ padding: '4px 6px', background: '#0f172a', border: '1px solid #334155', color: '#94a3b8' }}>
+                    <MiniTiptapEditor value={typeof h === 'string' ? h : (h || '')} onChange={html => { const hs = [...block.content.headers]; hs[i] = html; updateBlock(block.id, { ...block.content, headers: hs }); }} style={{ color: '#94a3b8' }} placeholder="Header" />
+                  </td>)}</tr>
               </thead>
               <tbody>
                 {(block.content.rows || []).map((row, ri) => (
-                  <tr key={ri}>{(row || []).map((cell, ci) => <td key={ci} style={{ padding: '6px 8px', border: '1px solid #334155', color: '#f1f5f9' }}><input value={cell} onChange={e => { const rs = block.content.rows.map(r => [...r]); rs[ri][ci] = e.target.value; updateBlock(block.id, { ...block.content, rows: rs }); }} style={{ background: 'transparent', border: 'none', color: '#f1f5f9', width: '100%' }} /></td>)}</tr>
+                  <tr key={ri}>{(row || []).map((cell, ci) => <td key={ci} style={{ padding: '4px 6px', border: '1px solid #334155', color: '#f1f5f9' }}>
+                    <MiniTiptapEditor
+                      value={typeof cell === 'string' ? cell : (cell || '')}
+                      onChange={html => { const rs = block.content.rows.map(r => [...r]); rs[ri][ci] = html; updateBlock(block.id, { ...block.content, rows: rs }); }}
+                      style={{ color: '#f1f5f9' }}
+                      placeholder="Cell"
+                    />
+                  </td>)}</tr>
                 ))}
               </tbody>
             </table>
@@ -404,7 +548,13 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
             {(block.content.items || []).map((item, i) => (
               <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
                 <span style={{ color: '#7c3aed', fontSize: 12 }}>•</span>
-                <input value={item.label || item} onChange={e => { const items = [...(block.content.items || [])]; items[i] = typeof items[i] === 'object' ? { ...items[i], label: e.target.value } : e.target.value; updateBlock(block.id, { ...block.content, items }); }} style={{ flex: 1, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '4px 8px', fontSize: 12 }} />
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  {['#ef4444','#22c55e','#f97316','#94a3b8','#eab308'].map(clr => (
+                    <button key={clr} onClick={() => { const items = [...(block.content.items || [])]; items[i] = { ...items[i], label: typeof items[i] === 'object' ? items[i].label : items[i], itemColor: clr }; updateBlock(block.id, { ...block.content, items }); }} style={{ width: 12, height: 12, borderRadius: '50%', background: clr, border: (item.itemColor || item.color) === clr ? '2px solid white' : '2px solid transparent', cursor: 'pointer', padding: 0 }} />
+                  ))}
+                  <button onClick={() => { const items = [...(block.content.items || [])]; items[i] = { ...items[i], itemColor: undefined }; updateBlock(block.id, { ...block.content, items }); }} style={{ width: 12, height: 12, borderRadius: '50%', background: '#334155', border: !(item.itemColor || item.color) ? '2px solid white' : '2px solid transparent', cursor: 'pointer', padding: 0, fontSize: 8, color: '#94a3b8' }}>╳</button>
+                </div>
+                <input value={item.label || item} onChange={e => { const items = [...(block.content.items || [])]; items[i] = { ...items[i], label: e.target.value, itemColor: item.itemColor || item.color }; updateBlock(block.id, { ...block.content, items }); }} style={{ flex: 1, background: '#0f172a', color: item.itemColor || item.color || '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '4px 8px', fontSize: 12 }} />
                 <button onClick={() => updateBlock(block.id, { ...block.content, items: block.content.items.filter((_, idx) => idx !== i) })} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
               </div>
             ))}
@@ -436,7 +586,7 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
               </div>
             </div>
 
-            <textarea value={block.content.text || ''} onChange={e => updateBlock(block.id, { ...block.content, text: e.target.value })} rows={4} placeholder="Project overview text..." style={{ display: 'block', width: '100%', background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 6, padding: '8px', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }} />
+            <TiptapEditor content={block.content.html || block.content.text || ''} onChange={html => updateBlock(block.id, { ...block.content, html, text: html })} placeholder="Type something..." />
           </div>
         )
       case 'techstack':
@@ -528,9 +678,20 @@ export default function ProposalBuilder({ proposalId, initialData, apiBase, onOp
               <button onClick={() => updateBlock(block.id, { ...block.content, ordered: true })} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, background: block.content.ordered ? '#7c3aed' : '#334155', color: '#fff' }}>Numbered</button>
             </div>
             {(block.content.items || []).map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
                 <span style={{ color: '#7c3aed', fontSize: 14, minWidth: 20 }}>{block.content.ordered ? `${i + 1}.` : '•'}</span>
-                <input value={item.label || item} onChange={e => { const items = block.content.items.map((it, idx) => idx === i ? { label: e.target.value, checked: typeof it === 'object' ? (it.checked ?? false) : false } : it); updateBlock(block.id, { ...block.content, items }); }} placeholder="List item" style={{ flex: 1, background: '#0f172a', color: '#f1f5f9', border: '1px solid #334155', borderRadius: 4, padding: '4px 8px', fontSize: 13 }} />
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1 }}>
+                  {['#ef4444','#22c55e','#f97316','#94a3b8','#eab308'].map(clr => (
+                    <button key={clr} onClick={() => { const items = block.content.items.map((it, idx) => idx === i ? { ...it, label: typeof it === 'object' ? it.label : it, checked: typeof it === 'object' ? (it.checked ?? false) : false, itemColor: clr } : it); updateBlock(block.id, { ...block.content, items }); }} style={{ width: 12, height: 12, borderRadius: '50%', background: clr, border: (item.itemColor || item.color) === clr ? '2px solid white' : '2px solid transparent', cursor: 'pointer', padding: 0 }} />
+                  ))}
+                  <button onClick={() => { const items = block.content.items.map((it, idx) => idx === i ? { ...it, itemColor: undefined } : it); updateBlock(block.id, { ...block.content, items }); }} style={{ width: 12, height: 12, borderRadius: '50%', background: '#334155', border: !(item.itemColor || item.color) ? '2px solid white' : '2px solid transparent', cursor: 'pointer', padding: 0, fontSize: 8, color: '#94a3b8' }}>╳</button>
+                </div>
+                <MiniTiptapEditor
+                  value={item.label || ''}
+                  onChange={html => { const items = block.content.items.map((it, idx) => idx === i ? { label: html, checked: typeof it === 'object' ? (it.checked ?? false) : false, itemColor: item.itemColor || item.color } : it); updateBlock(block.id, { ...block.content, items }); }}
+                  style={{ color: item.itemColor || item.color || '#f1f5f9' }}
+                  placeholder="List item"
+                />
                 <button onClick={() => updateBlock(block.id, { ...block.content, items: block.content.items.filter((_, idx) => idx !== i) })} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
               </div>
             ))}

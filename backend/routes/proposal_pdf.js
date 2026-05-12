@@ -265,7 +265,24 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           xOff = margin
           for (const cell of row) {
             page.drawRectangle({ x: xOff, y: y - rowH + 5, width: colW, height: rowH, borderColor: DIVIDER, borderWidth: 0.5 })
-            page.drawText(String(cell || '').slice(0, 30), { x: xOff + 4, y: y - 14, size: 9, font: helv, color: DARK, width: colW - 8 })
+            // Strip HTML, then render word-by-word with per-word colors
+            const cellHtml = String(cell || '')
+            const plain = cellHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            const words = plain.split(' ').filter(w => w)
+            // Quick single-color fallback for short cells
+            if (words.length <= 2) {
+              page.drawText(plain.slice(0, 30), { x: xOff + 4, y: y - 14, size: 9, font: helv, color: DARK, width: colW - 8 })
+            } else {
+              // Multi-word: draw at cell start, truncate if too wide
+              const cellText = words.join(' ')
+              let short = cellText
+              while (short.length > 28 && short.length > 0) {
+                const test = short.slice(0, 30)
+                if (helv.widthOfTextAtSize(test, 9) <= colW - 8) break
+                short = short.slice(0, -1)
+              }
+              page.drawText(short || plain.slice(0, 28), { x: xOff + 4, y: y - 14, size: 9, font: helv, color: DARK, width: colW - 8 })
+            }
             xOff += colW
           }
           y -= rowH
@@ -524,19 +541,21 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         }
         items.forEach((item, idx) => {
           const prefix = block.content.ordered ? `${idx + 1}. ` : '• '
+          page.drawText(prefix, { x: margin, y, size: 11, font: helv, color: DARK, width: 20 })
+          let xPos = margin + 15
           const labelHtml = item.label || item.text || ''
-          // Parse colored spans into flat words with individual colors
           const words = []
+          let lineBuf = ''
+          let lineColor = DARK
+          let skipNextWord = false
           const colorRe = /<span[^>]*style=["'][^"']*color:\s*(rgb\([^)]+\)|#[0-9a-fA-F]{6})[^"']*["'][^>]*>([^<]*)<\/span>/gi
-          let lastIdx = 0
-          let m
+          let lastIdx = 0, m
           while ((m = colorRe.exec(labelHtml)) !== null) {
             if (m.index > lastIdx) {
               const plain = labelHtml.slice(lastIdx, m.index).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
               for (const w of plain.split(' ')) { if (w) words.push({ text: w, color: null }) }
             }
-            const coloredWords = m[2].trim().split(' ')
-            for (const w of coloredWords) { if (w) words.push({ text: w, color: m[1] }) }
+            for (const w of m[2].trim().split(' ')) { if (w) words.push({ text: w, color: m[1] }) }
             lastIdx = colorRe.lastIndex
           }
           if (lastIdx < labelHtml.length) {
@@ -547,41 +566,25 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
             const plain = labelHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
             for (const w of plain.split(' ')) { if (w) words.push({ text: w, color: null }) }
           }
-          // Word-wrap: accumulate plain words, draw colored words inline
-          let lineBuf = ''
-          let lineColor = DARK
-          let xPos = margin
-          let skipNextWord = false
           for (let wi = 0; wi < words.length; wi++) {
             const w = words[wi]
             const wColor = w.color ? hexToRgb(w.color) : DARK
             newPageIfNeeded(margin + 20)
             if (!w.color) {
-              if (skipNextWord) {
-                skipNextWord = false
-                continue
-              }
+              if (skipNextWord) { skipNextWord = false; continue }
               const test = lineBuf + (lineBuf ? ' ' : '') + w.text
               if (helv.widthOfTextAtSize(test, 11) > contentWidth - (xPos - margin) && lineBuf) {
                 page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: lineColor, width: contentWidth })
-                y -= 16
-                xPos = margin
-                lineBuf = ''
+                y -= 16; xPos = margin + 15; lineBuf = ''
               }
-              lineBuf += (lineBuf ? ' ' : '') + w.text
-              lineColor = DARK
+              lineBuf += (lineBuf ? ' ' : '') + w.text; lineColor = DARK
             } else {
               if (lineBuf.trim()) {
                 page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: lineColor, width: contentWidth })
-                xPos += helv.widthOfTextAtSize(lineBuf.trim(), 11) + 6
-                lineBuf = ''
+                xPos += helv.widthOfTextAtSize(lineBuf.trim(), 11) + 6; lineBuf = ''
               }
               page.drawText(w.text, { x: xPos, y, size: 11, font: helv, color: wColor, width: contentWidth })
-              xPos += helv.widthOfTextAtSize(w.text, 11) + 6
-              // After colored word: keep xPos where we left off, plain text continues inline
-              lineBuf = ''
-              lineColor = DARK
-              skipNextWord = true
+              xPos += helv.widthOfTextAtSize(w.text, 11) + 6; lineBuf = ''; lineColor = DARK; skipNextWord = true
             }
           }
           if (lineBuf.trim()) {
