@@ -30,13 +30,24 @@ try {
 } catch {}
 
 function hexToRgb(hex) {
-  if (!hex || hex.length < 7) return ORANGE
+  if (!hex) return DARK
+  if (typeof hex !== 'string') return hex
+  // Extract #hex or rgb() from CSS values like 'color:#ef4444' or 'rgb(255,0,0)'
+  const hexMatch = hex.match(/#([0-9a-fA-F]{6})/)
+  if (hexMatch) hex = '#' + hexMatch[1]
+  else {
+    const rgbMatch = hex.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/)
+    if (rgbMatch) {
+      return rgb(parseInt(rgbMatch[1]) / 255, parseInt(rgbMatch[2]) / 255, parseInt(rgbMatch[3]) / 255)
+    }
+    return DARK
+  }
   try {
     const r = parseInt(hex.slice(1, 3), 16) / 255
     const g = parseInt(hex.slice(3, 5), 16) / 255
     const b = parseInt(hex.slice(5, 7), 16) / 255
     return rgb(r, g, b)
-  } catch { return ORANGE }
+  } catch { return DARK }
 }
 
 // ── Page constants ─────────────────────────────────────────────
@@ -196,7 +207,6 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         break
       }
       case 'text': {
-        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.html) {
           const plain = block.content.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
           const words = plain.split(' ')
@@ -229,12 +239,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           size--
         page.drawText(rawText, { x: margin, y, size, font: helvB, color: DARK, width: contentWidth })
         y -= size + 12
-        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
+        break
       }
       case 'table': {
         const headers = block.content.headers || []
         const rows = block.content.rows || []
-        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.sectionTitle) {
           newPageIfNeeded(margin + 50)
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -262,11 +271,10 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= rowH
         }
         y -= 12
-        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
+        break
       }
       case 'pricing': {
         const items = block.content.items || []
-        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         newPageIfNeeded(margin + 50)
         if (block.content.sectionTitle) {
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -279,7 +287,6 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= 20
         }
         y -= 12
-        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'timeline': {
@@ -309,7 +316,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         y -= 55
         break
       }
-      case 'scope': {
+            case 'scope': {
         const items = block.content.items || []
         if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.sectionTitle) {
@@ -317,29 +324,81 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
           y -= 24
         }
-        items.forEach((item) => {
-          const text = '• ' + (item.label || '')
-          const words = text.split(' ')
-          let line = ''
-          for (const word of words) {
-            const test = line + (line ? ' ' : '') + word
-            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
-              newPageIfNeeded(margin + 20)
-              page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-              y -= 16
-              line = word
-            } else { line = test }
+        for (const item of items) {
+          if (!item) continue
+          newPageIfNeeded(margin + 30)
+          page.drawText('•', { x: margin, y, size: 11, font: helv, color: DARK, width: 20 })
+          const label = item.label || item.text || ''
+          const labelColor = item.color ? hexToRgb(item.color) : DARK
+          const restText = item.text ? label.replace(item.label || '', '') : ''
+          const labelText = item.label || label
+          // Parse HTML color spans in label text (same as overview and list blocks)
+          const colorRe = /<span[^>]*style=["'][^"']*color:\s*(rgb\([^)]+\)|#[0-9a-fA-F]{6})[^"']*["'][^>]*>([^<]*)<\/span>/gi
+          const segs = []
+          let lastIdx = 0
+          let m
+          while ((m = colorRe.exec(labelText)) !== null) {
+            if (m.index > lastIdx) {
+              const plain = labelText.slice(lastIdx, m.index).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+              for (const w of plain.split(' ')) { if (w) segs.push({ text: w, color: null }) }
+            }
+            for (const w of m[2].trim().split(' ')) { if (w) segs.push({ text: w, color: m[1] }) }
+            lastIdx = colorRe.lastIndex
           }
-          if (line) {
+          if (lastIdx < labelText.length) {
+            const plain = labelText.slice(lastIdx).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            for (const w of plain.split(' ')) { if (w) segs.push({ text: w, color: null }) }
+          }
+          if (!segs.length) {
+            for (const w of labelText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ')) {
+              if (w) segs.push({ text: w, color: null })
+            }
+          }
+          let xPos = margin + 15
+          let lineBuf = ''
+          let lineColor = labelColor
+          for (const seg of segs) {
+            const segColor = seg.color ? hexToRgb(seg.color) : labelColor
+            if (!seg.color) {
+              // Plain word: accumulate with word-wrap
+              const test = lineBuf + (lineBuf ? ' ' : '') + seg.text
+              if (helv.widthOfTextAtSize(test, 11) > contentWidth - 15 && lineBuf) {
+                newPageIfNeeded(margin + 20)
+                page.drawText(lineBuf.trim(), { x: margin + 15, y, size: 11, font: helv, color: lineColor, width: contentWidth - 15 })
+                y -= 16
+                xPos = margin + 15
+                lineBuf = ''
+              }
+              lineBuf += (lineBuf ? ' ' : '') + seg.text
+            } else {
+              // Colored word: flush plain buffer at xPos before colored word
+              if (lineBuf.trim()) {
+                newPageIfNeeded(margin + 20)
+                page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: lineColor, width: contentWidth - 15 })
+                xPos += helv.widthOfTextAtSize(lineBuf.trim(), 11) + 6
+                lineBuf = ''
+              }
+              // Draw colored word at current xPos
+              newPageIfNeeded(margin + 20)
+              page.drawText(seg.text, { x: xPos, y, size: 11, font: helv, color: segColor, width: contentWidth - 15 })
+              xPos += helv.widthOfTextAtSize(seg.text, 11) + 6
+              // After colored word: move to next line, reset xPos to start of line
+              // Remaining plain words continue from margin on the next line
+              y -= 16
+              xPos = margin + 15
+              lineColor = labelColor
+            }
+          }
+          if (lineBuf.trim()) {
             newPageIfNeeded(margin + 20)
-            page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+            page.drawText(lineBuf.trim(), { x: margin + 15, y, size: 11, font: helv, color: lineColor, width: contentWidth - 15 })
             y -= 16
           }
-        })
+        }
         y -= 6
         if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
-      }
-      case 'techstack': {
+        break
+      }case 'techstack': {
         const items = block.content.items || []
         newPageIfNeeded(margin + 40)
         page.drawText('Tech Stack', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -354,31 +413,76 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'overview': {
         const text = block.content.text || block.content.html || ''
-        const plain = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
-        if (plain) {
-          if (block.content.marginTop) { const mt = parseInt(block.content.marginTop) || 0; y -= mt }
-          newPageIfNeeded(margin + 50)
-          page.drawText('Overview', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
-          y -= 24
-          // Word-wrap the overview text using pixel width
-          const words = plain.split(' ')
-          let line = ''
-          for (const word of words) {
-            const test = line + (line ? ' ' : '') + word
-            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
-              newPageIfNeeded(margin + 20)
-              page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-              y -= 16
-              line = word
-            } else { line = test }
+        if (!text.trim()) { if (block.content.marginBottom) y -= parseInt(block.content.marginBottom) || 0; break }
+        newPageIfNeeded(margin + 50)
+        page.drawText('Overview', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
+        y -= 24
+        // Parse colored spans: plain segments + colored words
+        const segments = []
+        const colorRe = /<span[^>]*style=["'][^"']*color:\s*(rgb\([^)]+\)|#[0-9a-fA-F]{6})[^"']*["'][^>]*>([^<]*)<\/span>/gi
+        let lastIndex = 0
+        let m
+        while ((m = colorRe.exec(text)) !== null) {
+          if (m.index > lastIndex) {
+            const chunk = text.slice(lastIndex, m.index).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            if (chunk) segments.push({ text: chunk, color: null })
           }
-          if (line) {
-            newPageIfNeeded(margin + 20)
-            page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-            y -= 16
-          }
-          if (block.content.marginBottom) { const mb = parseInt(block.content.marginBottom) || 0; y -= mb }
+          segments.push({ text: m[2], color: m[1] })
+          lastIndex = colorRe.lastIndex
         }
+        if (lastIndex < text.length) {
+          const remainder = text.slice(lastIndex).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          if (remainder) segments.push({ text: remainder, color: null })
+        }
+        if (!segments.length) segments.push({ text: text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), color: null })
+        // Segments: plain segments + colored words, all inline on same y
+        let lineBuf = ''
+        let xPos = margin
+        let skipFirstWord = false  // Skip first word of plain segment if it was replaced by colored word
+        for (const seg of segments) {
+          newPageIfNeeded(margin + 20)
+          const segColor = seg.color ? hexToRgb(seg.color) : DARK
+          if (seg.color) {
+            // Draw any pending plain text, then colored word — all on same y
+            if (lineBuf.trim()) {
+              page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: DARK, width: contentWidth })
+              xPos += helv.widthOfTextAtSize(lineBuf.trim(), 11) + 6
+              lineBuf = ''
+            }
+            page.drawText(seg.text, { x: xPos, y, size: 11, font: helv, color: segColor, width: contentWidth })
+            xPos += helv.widthOfTextAtSize(seg.text, 11) + 6
+            // After colored word: keep xPos where we left off (don't reset to margin yet)
+            // Plain text continuing this segment will accumulate from xPos
+            skipFirstWord = true
+          } else {
+            // Plain text: accumulate from current xPos with word-wrap
+            const words = seg.text.split(' ')
+            for (let wi = 0; wi < words.length; wi++) {
+              const w = words[wi]
+              if (!w) continue
+              // First word of plain segment — skip if it was replaced by colored word
+              if (skipFirstWord && wi === 0) {
+                skipFirstWord = false
+                continue
+              }
+              const test = lineBuf + (lineBuf ? ' ' : '') + w
+              const exceeds = helv.widthOfTextAtSize(test, 11) > contentWidth - (xPos - margin)
+              if (exceeds && lineBuf) {
+                page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: DARK, width: contentWidth })
+                y -= 16
+                xPos = margin
+                lineBuf = ''
+              }
+              lineBuf += (lineBuf ? ' ' : '') + w
+            }
+          }
+        }
+        if (lineBuf.trim()) {
+          page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: DARK, width: contentWidth })
+          y -= 16
+        }
+        if (block.content.marginBottom)
+        if (block.content.marginBottom) { const mb = parseInt(block.content.marginBottom) || 0; y -= mb }
         break
       }
       case 'image': {
@@ -413,7 +517,6 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
       }
       case 'list': {
         const items = block.content.items || []
-        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.sectionTitle) {
           newPageIfNeeded(margin + 50)
           page.drawText(block.content.sectionTitle, { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -421,26 +524,75 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         }
         items.forEach((item, idx) => {
           const prefix = block.content.ordered ? `${idx + 1}. ` : '• '
-          const text = prefix + (item.label || '')
-          const words = text.split(' ')
-          let line = ''
-          for (const word of words) {
-            const test = line + (line ? ' ' : '') + word
-            if (helv.widthOfTextAtSize(test, 11) > contentWidth) {
-              newPageIfNeeded(margin + 20)
-              page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
-              y -= 16
-              line = word
-            } else { line = test }
+          const labelHtml = item.label || item.text || ''
+          // Parse colored spans into flat words with individual colors
+          const words = []
+          const colorRe = /<span[^>]*style=["'][^"']*color:\s*(rgb\([^)]+\)|#[0-9a-fA-F]{6})[^"']*["'][^>]*>([^<]*)<\/span>/gi
+          let lastIdx = 0
+          let m
+          while ((m = colorRe.exec(labelHtml)) !== null) {
+            if (m.index > lastIdx) {
+              const plain = labelHtml.slice(lastIdx, m.index).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+              for (const w of plain.split(' ')) { if (w) words.push({ text: w, color: null }) }
+            }
+            const coloredWords = m[2].trim().split(' ')
+            for (const w of coloredWords) { if (w) words.push({ text: w, color: m[1] }) }
+            lastIdx = colorRe.lastIndex
           }
-          if (line) {
+          if (lastIdx < labelHtml.length) {
+            const plain = labelHtml.slice(lastIdx).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            for (const w of plain.split(' ')) { if (w) words.push({ text: w, color: null }) }
+          }
+          if (!words.length) {
+            const plain = labelHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+            for (const w of plain.split(' ')) { if (w) words.push({ text: w, color: null }) }
+          }
+          // Word-wrap: accumulate plain words, draw colored words inline
+          let lineBuf = ''
+          let lineColor = DARK
+          let xPos = margin
+          let skipNextWord = false
+          for (let wi = 0; wi < words.length; wi++) {
+            const w = words[wi]
+            const wColor = w.color ? hexToRgb(w.color) : DARK
             newPageIfNeeded(margin + 20)
-            page.drawText(line.trim(), { x: margin, y, size: 11, font: helv, color: DARK, width: contentWidth })
+            if (!w.color) {
+              if (skipNextWord) {
+                skipNextWord = false
+                continue
+              }
+              const test = lineBuf + (lineBuf ? ' ' : '') + w.text
+              if (helv.widthOfTextAtSize(test, 11) > contentWidth - (xPos - margin) && lineBuf) {
+                page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: lineColor, width: contentWidth })
+                y -= 16
+                xPos = margin
+                lineBuf = ''
+              }
+              lineBuf += (lineBuf ? ' ' : '') + w.text
+              lineColor = DARK
+            } else {
+              if (lineBuf.trim()) {
+                page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: lineColor, width: contentWidth })
+                xPos += helv.widthOfTextAtSize(lineBuf.trim(), 11) + 6
+                lineBuf = ''
+              }
+              page.drawText(w.text, { x: xPos, y, size: 11, font: helv, color: wColor, width: contentWidth })
+              xPos += helv.widthOfTextAtSize(w.text, 11) + 6
+              // After colored word: keep xPos where we left off, plain text continues inline
+              lineBuf = ''
+              lineColor = DARK
+              skipNextWord = true
+            }
+          }
+          if (lineBuf.trim()) {
+            newPageIfNeeded(margin + 20)
+            page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: lineColor, width: contentWidth })
             y -= 16
           }
         })
         y -= 6
         if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
+        break
       }
       case 'divider': {
         const col = hexToRgb(block.content.color)
