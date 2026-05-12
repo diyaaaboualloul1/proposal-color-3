@@ -207,6 +207,7 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         break
       }
       case 'text': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.html) {
           const plain = block.content.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
           const words = plain.split(' ')
@@ -228,9 +229,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           }
           y -= 6
         }
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'heading': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         newPageIfNeeded(margin + 50)
         const sizes = { 1: 20, 2: 16, 3: 13 }
         let size = sizes[block.content.level] || 16
@@ -239,9 +242,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           size--
         page.drawText(rawText, { x: margin, y, size, font: helvB, color: DARK, width: contentWidth })
         y -= size + 12
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'table': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const headers = block.content.headers || []
         const rows = block.content.rows || []
         if (block.content.sectionTitle) {
@@ -288,9 +293,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= rowH
         }
         y -= 12
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'pricing': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const items = block.content.items || []
         newPageIfNeeded(margin + 50)
         if (block.content.sectionTitle) {
@@ -304,9 +311,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= 20
         }
         y -= 12
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'timeline': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const phases = block.content.phases || []
         newPageIfNeeded(margin + 50)
         page.drawText('Timeline', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -322,15 +331,18 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= 26
         }
         y -= 12
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'callout': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         newPageIfNeeded(margin + 50)
         const bgColor = hexToRgb(block.content.bgColor)
         const textColor = hexToRgb(block.content.textColor)
         page.drawRectangle({ x: margin, y: y - 45, width: contentWidth, height: 45, color: bgColor })
         page.drawText((block.content.text || '').slice(0, 120), { x: margin + 10, y: y - 26, size: 11, font: helv, color: textColor, width: contentWidth - 20 })
         y -= 55
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
             case 'scope': {
@@ -415,7 +427,9 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         y -= 6
         if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
-      }case 'techstack': {
+      }
+      case 'techstack': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const items = block.content.items || []
         newPageIfNeeded(margin + 40)
         page.drawText('Tech Stack', { x: margin, y, size: 14, font: helvB, color: ORANGE, width: contentWidth })
@@ -426,9 +440,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= 17
         }
         y -= 6
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'overview': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const text = block.content.text || block.content.html || ''
         if (!text.trim()) { if (block.content.marginBottom) y -= parseInt(block.content.marginBottom) || 0; break }
         newPageIfNeeded(margin + 50)
@@ -498,19 +514,21 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           page.drawText(lineBuf.trim(), { x: xPos, y, size: 11, font: helv, color: DARK, width: contentWidth })
           y -= 16
         }
-        if (block.content.marginBottom)
-        if (block.content.marginBottom) { const mb = parseInt(block.content.marginBottom) || 0; y -= mb }
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'image': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         if (block.content.alt) {
           newPageIfNeeded(margin + 40)
           page.drawText(`[Image: ${block.content.alt}]`, { x: margin, y, size: 10, font: helv, color: GRAY, width: contentWidth })
           y -= 20
         }
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'columns': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const cols = block.content.columns || []
         const colCount = Math.min(cols.length, 3)
         if (!colCount) break
@@ -524,15 +542,19 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
           y -= 40
         }
         y -= 12
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'footer': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         newPageIfNeeded(margin + 30)
         page.drawText('Proposal prepared by Fifty Studios', { x: margin, y, size: 9, font: helv, color: GRAY, width: contentWidth })
         y -= 20
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       case 'list': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const items = block.content.items || []
         if (block.content.sectionTitle) {
           newPageIfNeeded(margin + 50)
@@ -598,9 +620,11 @@ async function renderBlock(page, doc, block, pageWidth, pageHeight, margin, y, f
         break
       }
       case 'divider': {
+        if (block.content.marginTop) { y -= parseInt(block.content.marginTop) || 0 }
         const col = hexToRgb(block.content.color)
         page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: block.content.thickness || 1, color: col })
         y -= 20
+        if (block.content.marginBottom) { y -= parseInt(block.content.marginBottom) || 0 }
         break
       }
       default:
